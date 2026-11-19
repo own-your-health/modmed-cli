@@ -30,12 +30,8 @@ pub fn run(ctx: &Ctx, args: &ApiArgs) -> Result<(), CliError> {
     let source = live.clone();
     let fhir = FhirClient::new(&t, &base, BIN, env!("CARGO_PKG_VERSION"))?
         .bearer_with(move |refused| source.bearer(refused));
-    let path = if absolute(&args.path) {
-        args.path.clone()
-    } else {
-        query_urls_escaped(&args.path)
-    };
-    let body = block_on(fhir.get_raw(&path)).map_err(|e| sign_in_again(e, &profile, &context))?;
+    let body =
+        block_on(fhir.get_raw(&args.path)).map_err(|e| sign_in_again(e, &profile, &context))?;
     match serde_json::from_str::<serde_json::Value>(&body) {
         Ok(v) if !ctx.json() => println!(
             "{}",
@@ -62,17 +58,6 @@ fn absolute(path: &str) -> bool {
     })
 }
 
-/// `path` with each `://` in its query as `%3A//`, which the server decodes
-/// back: pk-med-fhir takes any path holding `://` for a URL on another
-/// server, and a token search's system is one
-/// (`Condition?code=http://snomed.info/sct|123`).
-fn query_urls_escaped(path: &str) -> String {
-    match path.split_once('?') {
-        Some((resource, query)) => format!("{resource}?{}", query.replace("://", "%3A//")),
-        None => path.to_string(),
-    }
-}
-
 /// Whether `url` is `base` or under it: the same origin, and the path at a
 /// segment boundary.
 fn within(url: &str, base: &str) -> bool {
@@ -83,20 +68,7 @@ fn within(url: &str, base: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{absolute, query_urls_escaped, within};
-
-    #[test]
-    fn a_url_in_the_query_is_escaped_and_the_rest_kept() {
-        assert_eq!(
-            query_urls_escaped("Condition?patient=p1&code=http://snomed.info/sct|123"),
-            "Condition?patient=p1&code=http%3A//snomed.info/sct|123"
-        );
-        assert_eq!(query_urls_escaped("Patient/p1"), "Patient/p1");
-        assert_eq!(
-            query_urls_escaped("Condition?patient=p1"),
-            "Condition?patient=p1"
-        );
-    }
+    use super::{absolute, within};
 
     #[test]
     fn a_path_is_absolute_only_when_it_starts_with_a_scheme() {
