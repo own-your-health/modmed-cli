@@ -529,10 +529,7 @@ pub fn resolve<'a>(orgs: &'a [Org], query: &str) -> Result<&'a Org, CliError> {
         query,
         |o| {
             let mut ids = vec![o.id.clone()];
-            if let Some(s) = &o.subdomain {
-                ids.push(s.to_lowercase());
-                ids.push(s.clone());
-            }
+            ids.extend(o.subdomain.iter().cloned());
             ids.extend(o.npi.iter().cloned());
             ids
         },
@@ -540,7 +537,7 @@ pub fn resolve<'a>(orgs: &'a [Org], query: &str) -> Result<&'a Org, CliError> {
         "organization",
     )
     .map_err(|e| {
-        e.with_remedy("find it with `modmed orgs search <text>` and pass its id (`--org <ID>`)")
+        e.with_remedy("find it with `modmed orgs search <WORDS>` and pass its id (`--org <ID>`)")
     })
 }
 

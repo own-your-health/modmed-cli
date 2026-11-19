@@ -20,9 +20,15 @@ pub fn run(ctx: &Ctx, args: &ApiArgs) -> Result<(), CliError> {
     let profile = ctx.profile(&config)?;
     let context = ctx.signed_in(&config, &profile, &args.who)?;
     let live = ctx.live(&profile, &context)?;
+    let base = live.fhir_base();
+    if args.path.contains("://") && !within(&args.path, &base) {
+        return Err(CliError::Usage(format!(
+            "`api` reads from the signed-in practice's FHIR server only: give a path under {base}"
+        )));
+    }
     let t = transport()?;
     let source = live.clone();
-    let fhir = FhirClient::new(&t, &live.fhir_base(), BIN, env!("CARGO_PKG_VERSION"))?
+    let fhir = FhirClient::new(&t, &base, BIN, env!("CARGO_PKG_VERSION"))?
         .bearer_with(move |refused| source.bearer(refused));
     let body =
         block_on(fhir.get_raw(&args.path)).map_err(|e| sign_in_again(e, &profile, &context))?;
@@ -34,4 +40,31 @@ pub fn run(ctx: &Ctx, args: &ApiArgs) -> Result<(), CliError> {
         _ => println!("{}", body.trim_end()),
     }
     Ok(())
+}
+
+/// Whether `url` is `base` or under it: the same origin, and the path at a
+/// segment boundary.
+fn within(url: &str, base: &str) -> bool {
+    let base = base.trim_end_matches('/');
+    url.strip_prefix(base)
+        .is_some_and(|rest| rest.is_empty() || rest.starts_with(['/', '?']))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::within;
+
+    #[test]
+    fn only_a_url_under_the_fhir_base_is_within_it() {
+        let base = "https://example.mmi.prod.fhir.ema-api.com/fhir/r4";
+        assert!(within(&format!("{base}/Patient/x"), base));
+        assert!(within(&format!("{base}?_format=json"), base));
+        assert!(within(base, &format!("{base}/")));
+        assert!(!within(&format!("{base}x/Patient"), base));
+        assert!(!within("https://other.example/fhir/r4/Patient", base));
+        assert!(!within(
+            "https://example.mmi.prod.fhir.ema-api.com.other.example/fhir/r4",
+            base
+        ));
+    }
 }

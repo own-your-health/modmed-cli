@@ -100,7 +100,7 @@ fails. Every sign-in error ends with the `modmed` command that fixes it.
 | Command | Does |
 |---|---|
 | `modmed orgs refresh [--force]` | download ModMed's directories when the copy is a week old (`--force`: now) |
-| `modmed orgs list [--state ST] [--limit N]`, `modmed orgs search <TEXT>` | the practices (`org-list/v1`); search matches name, id, subdomain, city, state and NPI |
+| `modmed orgs list [--state ST] [--limit N]`, `modmed orgs search <WORDS>` | the practices (`org-list/v1`); search: every word must match the name, id, subdomain, city, state or NPI |
 | `modmed profiles list\|add <NAME>\|remove <NAME> [--force]` | the profiles, one per patient portal account (`profile-list/v1`) |
 | `modmed auth set-credential [--test] [--overwrite]` | store the app's client id and secret (`--test`: a test server's) |
 | `modmed auth login --profile <NAME> --org <ORG> [--label <WHO>] [--no-browser] [--timeout <MIN>]` | sign a patient in at a practice; waits up to `--timeout` minutes (default 10, at most 60) |

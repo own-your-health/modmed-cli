@@ -167,8 +167,11 @@ fn login(ctx: &Ctx, args: &LoginArgs) -> Result<(), CliError> {
         return Err(CliError::Usage("--timeout is from 1 to 60 minutes".into()));
     }
     if args.org.trim().is_empty() {
-        return Err(CliError::Usage("--org is empty".into())
-            .with_remedy(format!("find the practice with `{BIN} orgs search <TEXT>`")));
+        return Err(
+            CliError::Usage("--org is empty".into()).with_remedy(format!(
+                "find the practice with `{BIN} orgs search <WORDS>`"
+            )),
+        );
     }
     let config = ctx.config()?;
     let profile = ctx.profile(&config)?;
@@ -237,7 +240,7 @@ fn login(ctx: &Ctx, args: &LoginArgs) -> Result<(), CliError> {
         ));
     } else {
         ctx.note(format!(
-            "Open this address in a browser and sign in to {}'s patient portal:",
+            "Open this address in a browser and sign in to the patient portal of {}:",
             org.name
         ));
         eprintln!("{}", pending.url());
@@ -487,6 +490,14 @@ fn signed_out(ctx: &Ctx, args: &LogoutArgs) -> Result<Value, CliError> {
             .cloned()
             .collect(),
     };
+    if let (Some(o), true) = (org, chosen.is_empty()) {
+        return Err(CliError::NotFound(format!(
+            "no patient of profile {profile} is signed in at `{o}`"
+        ))
+        .with_remedy(format!(
+            "`{BIN} patients list --profile {profile}` shows who is, and where"
+        )));
+    }
     let sessions = ctx.sessions(&profile);
     let mut removed = Vec::new();
     for c in &chosen {
@@ -740,17 +751,28 @@ pub(crate) mod tests {
         settings.upsert(other);
         let adult1 = ProfileName::parse("adult1").unwrap();
         ctx.save_settings(&adult1, &settings).unwrap();
-        let done = signed_out(
-            &ctx,
-            &LogoutArgs {
-                who: PatientArgs {
-                    patient: None,
-                    org: Some("example dermatology".into()),
-                },
-                forget: false,
+        let at = |org: &str| LogoutArgs {
+            who: PatientArgs {
+                patient: None,
+                org: Some(org.into()),
             },
-        )
-        .unwrap();
+            forget: false,
+        };
+        // A practice where nobody is signed in is not found, and signs nobody out.
+        let err = signed_out(&ctx, &at("elsewhere.mmi")).unwrap_err();
+        assert_eq!(err.exit_code(), 4, "{err}");
+        assert!(err
+            .remedy()
+            .unwrap()
+            .contains("patients list --profile adult1"));
+        assert_eq!(
+            ctx.settings(&ctx.config().unwrap(), &adult1)
+                .unwrap()
+                .grants
+                .len(),
+            2
+        );
+        let done = signed_out(&ctx, &at("example dermatology")).unwrap();
         assert_eq!(done["signed_out"], json!(["adult1"]));
         let left = ctx.settings(&ctx.config().unwrap(), &adult1).unwrap();
         assert_eq!(left.grants.len(), 1);

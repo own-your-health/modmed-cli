@@ -46,8 +46,16 @@ fn run(cli: &Cli) -> Result<(), CliError> {
         }
         .run(args, cli.common.json, cli.common.quiet),
         Command::Completions { shell } => {
-            clap_complete::generate(*shell, &mut Cli::command(), BIN, &mut std::io::stdout());
-            Ok(())
+            // Rendered whole first: clap_complete panics when stdout closes
+            // early (`| head`), and a closed pipe is not an error.
+            let mut script = Vec::new();
+            clap_complete::generate(*shell, &mut Cli::command(), BIN, &mut script);
+            match std::io::Write::write_all(&mut std::io::stdout(), &script) {
+                Err(e) if e.kind() != std::io::ErrorKind::BrokenPipe => Err(CliError::Other(
+                    format!("could not write the completion script: {e}"),
+                )),
+                _ => Ok(()),
+            }
         }
         Command::Info => {
             let mut info = CliInfo::new(
@@ -58,7 +66,7 @@ fn run(cli: &Cli) -> Result<(), CliError> {
                     required: true,
                     method: "browser-session".into(),
                     login_hint: Some(format!(
-                        "{BIN} auth set-credential, {BIN} profiles add <NAME>, {BIN} orgs search <TEXT>, then {BIN} auth login --profile <NAME> --org <ORG> --label <WHO>"
+                        "{BIN} auth set-credential, {BIN} profiles add <NAME>, {BIN} orgs search <WORDS>, then {BIN} auth login --profile <NAME> --org <ORG> --label <WHO>"
                     )),
                 },
                 &[

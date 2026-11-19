@@ -116,6 +116,25 @@ fn version_and_completions() {
             .success()
             .stdout(predicate::str::contains("modmed"));
     }
+    // A reader that stops early (`| head`) is not a failure.
+    let mut child = std::process::Command::new(env!("CARGO_BIN_EXE_modmed"))
+        .args(["completions", "zsh"])
+        .env("MODMED_KEYCHAIN_SERVICE", "piekstra.modmed.hermetic-tests")
+        .env("XDG_CONFIG_HOME", home.join("config"))
+        .env("MODMED_CACHE_DIR", home.join("cache"))
+        .env("HOME", &home)
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    drop(child.stdout.take());
+    let out = child.wait_with_output().unwrap();
+    assert_eq!(
+        out.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
 }
 
 #[test]
@@ -172,6 +191,11 @@ fn orgs_come_from_the_directory_downloaded_once_a_week() {
     assert_eq!(directory.requests(), 2);
     let v = stdout_json(modmed(&home).args(["orgs", "search", "springfield", "--json"]));
     assert_eq!(v["items"].as_array().unwrap().len(), 1);
+    // Several words, quoted or not, must all match.
+    let v = stdout_json(modmed(&home).args(["orgs", "search", "Example", "SKIN", "--json"]));
+    assert_eq!(v["items"].as_array().unwrap().len(), 1);
+    let v = stdout_json(modmed(&home).args(["orgs", "search", "example skin", "--json"]));
+    assert_eq!(v["items"].as_array().unwrap().len(), 1);
     let v = stdout_json(modmed(&home).args(["orgs", "list", "--state", "st", "--json"]));
     assert_eq!(v["items"].as_array().unwrap().len(), 3);
     let v = stdout_json(modmed(&home).args(["orgs", "list", "--limit", "1", "--json"]));
@@ -197,8 +221,14 @@ fn orgs_come_from_the_directory_downloaded_once_a_week() {
     assert_eq!(v["refreshed"], true);
     assert_eq!(directory.requests(), 4);
 
-    // When the directory fails, the old copy still answers, with a warning.
+    // When the directory fails, a refresh fails and keeps the copy, and the
+    // copy still answers, with a warning.
     directory.fail(true);
+    modmed(&home)
+        .args(["orgs", "refresh", "--force"])
+        .assert()
+        .code(5)
+        .stderr(predicate::str::contains("is kept"));
     let index = home.join("cache/orgs.json");
     let mut cached: Value =
         serde_json::from_str(&std::fs::read_to_string(&index).unwrap()).unwrap();
@@ -337,6 +367,13 @@ fn nothing_stored_reads_as_such_without_the_keychain() {
     let v = stdout_json(modmed(&home).args(["patients", "list", "--profile", "adult1", "--json"]));
     assert_eq!(v["schema"], "patient-list/v1");
     assert_eq!(v["items"], json!([]));
+    modmed(&home)
+        .args(["patients", "list", "--profile", "adult1"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(
+            "modmed auth login --profile adult1 --org <ORG>",
+        ));
     // With nothing signed in, a read is an auth error before any request.
     for args in [
         vec!["records", "export", "--ndjson"],
@@ -376,6 +413,7 @@ fn bad_arguments_are_refused_before_anything_else() {
     for (args, code) in [
         (vec!["nope"], 2),
         (vec!["orgs", "search", "  "], 2),
+        (vec!["orgs", "search"], 2),
         (
             vec!["auth", "set-credential", "--stdin", "--from-env", "X"],
             2,
