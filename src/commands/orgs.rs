@@ -7,7 +7,7 @@ use serde_json::json;
 
 use super::{rfc3339, Ctx};
 use crate::cli::{OrgListArgs, OrgsCmd};
-use crate::orgs::{self, Org};
+use crate::orgs::{self, Freshness, Org};
 
 pub fn run(ctx: &Ctx, cmd: &OrgsCmd) -> Result<(), CliError> {
     match cmd {
@@ -18,9 +18,11 @@ pub fn run(ctx: &Ctx, cmd: &OrgsCmd) -> Result<(), CliError> {
             emit(ctx, index.orgs.iter().collect(), list);
             Ok(())
         }
-        OrgsCmd::Search { text, list } => {
+        OrgsCmd::Search { words, list } => {
             validate(list)?;
-            if text.trim().is_empty() {
+            let text = words.join(" ");
+            let text = text.trim();
+            if text.is_empty() {
                 return Err(CliError::Usage("give some text to search for".into()));
             }
             let index = ctx.org_index(&ctx.config()?, false)?;
@@ -77,7 +79,16 @@ fn emit(ctx: &Ctx, orgs: Vec<&Org>, list: &OrgListArgs) {
 }
 
 fn refresh(ctx: &Ctx, force: bool) -> Result<(), CliError> {
-    let (index, refreshed) = ctx.org_index_downloaded(&ctx.config()?, force)?;
+    let (index, freshness) = ctx.org_index_downloaded(&ctx.config()?, force)?;
+    // Downloading is the command's whole job: a failure is its error, the
+    // older copy kept.
+    if let Freshness::Stale(e) = freshness {
+        let kept = rfc3339(index.fetched_at.max(0) as u64);
+        return Err(e.with_remedy(format!(
+            "the copy from {kept} is kept and still answers `orgs list` and `orgs search`; try again later"
+        )));
+    }
+    let refreshed = matches!(freshness, Freshness::Refreshed);
     let payload = json!({
         "sources": index.sources,
         "fetched_at": rfc3339(index.fetched_at.max(0) as u64),

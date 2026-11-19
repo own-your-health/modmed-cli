@@ -420,8 +420,11 @@ fn download_all(
         output::json(&with_withheld(to_json(&batch)?, &found.withheld)?);
     } else {
         println!(
-            "saved {} documents to {} ({} skipped)",
-            batch.count,
+            "saved {} to {} ({} skipped)",
+            match batch.count {
+                1 => "1 document".to_string(),
+                n => format!("{n} documents"),
+            },
             batch.dir,
             batch.skipped.len()
         );

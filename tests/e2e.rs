@@ -615,6 +615,43 @@ fn a_stored_sign_in_pointing_elsewhere_is_refused_before_any_renewal() {
 }
 
 #[test]
+fn api_reads_under_the_practice_s_fhir_base_only() {
+    let dir = tempfile::tempdir().unwrap();
+    let mock = MockServer::start();
+    let ctx = ctx(dir.path(), &mock);
+    login(&ctx, "adult1");
+    let api = |path: &str| {
+        commands::api::run(
+            &ctx,
+            &modmed::cli::ApiArgs {
+                method: "GET".into(),
+                path: path.into(),
+                who: PatientArgs::default(),
+            },
+        )
+    };
+    api("Condition?patient=pat-0001").unwrap();
+    api(&format!("{}/Patient/pat-0001", mock.fhir_base())).unwrap();
+    // A token search's system is a URL inside a relative path.
+    api("Condition?patient=pat-0001&code=http://snomed.info/sct|123").unwrap();
+    assert!(mock
+        .requests()
+        .iter()
+        .any(|r| r.path() == "/fhir/Condition" && r.target.contains("snomed.info")));
+    let before = mock.requests().len();
+    for elsewhere in [
+        "https://elsewhere.example/fhir/Patient".to_string(),
+        "//elsewhere.example/fhir/Patient".to_string(),
+        format!("{}x/Patient", mock.fhir_base()),
+    ] {
+        let err = api(&elsewhere).unwrap_err();
+        assert_eq!(err.exit_code(), 2, "{err}");
+        assert!(err.to_string().contains("only"), "{err}");
+    }
+    assert_eq!(mock.requests().len(), before);
+}
+
+#[test]
 fn the_test_organization_never_signs_in_at_another_machine() {
     let dir = tempfile::tempdir().unwrap();
     let mock = MockServer::start();

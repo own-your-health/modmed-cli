@@ -5,7 +5,7 @@ use pk_med_records::patient_list;
 use pk_med_smart::SessionStore;
 use serde_json::Value;
 
-use super::Ctx;
+use super::{Ctx, BIN};
 use crate::cli::PatientsCmd;
 use crate::session::now;
 
@@ -18,7 +18,13 @@ pub fn run(ctx: &Ctx, cmd: &PatientsCmd) -> Result<(), CliError> {
     }
     let rows = output::rows_of(&list, "items");
     if rows.is_empty() {
-        println!("No patient is signed in in this profile (`modmed auth login --profile <NAME> --org <ORG> --label <WHO>`).");
+        let profile = ctx.profile(&ctx.config()?)?;
+        match org {
+            Some(org) => println!("No patient is signed in at `{org}` in profile {profile}."),
+            None => println!(
+                "No patient is signed in in profile {profile} (`{BIN} auth login --profile {profile} --org <ORG> --label <WHO>`)."
+            ),
+        }
         return Ok(());
     }
     let mut columns = vec!["label", "id", "organization", "relationship"];

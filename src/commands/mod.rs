@@ -177,16 +177,25 @@ impl Ctx {
     /// none, it is a week old, or `force`. A failed download with an older
     /// copy warns and answers from it.
     pub fn org_index(&self, config: &Config, force: bool) -> Result<OrgIndex, CliError> {
-        self.org_index_downloaded(config, force)
-            .map(|(index, _)| index)
+        let (index, freshness) = self.org_index_downloaded(config, force)?;
+        if let Freshness::Stale(e) = freshness {
+            self.note(format!(
+                "warning: ModMed's directory could not be downloaded ({}); using the copy from {}",
+                e.message(),
+                rfc3339(index.fetched_at.max(0) as u64)
+            ));
+        }
+        Ok(index)
     }
 
-    /// [`Ctx::org_index`], and whether it was downloaded now.
+    /// The directory index and how it was had: from the cache, downloaded
+    /// now, or an older copy after a failed download (which the caller
+    /// reports).
     pub fn org_index_downloaded(
         &self,
         config: &Config,
         force: bool,
-    ) -> Result<(OrgIndex, bool), CliError> {
+    ) -> Result<(OrgIndex, Freshness), CliError> {
         let t = transport()?;
         let quiet = self.common.quiet;
         let note = move |line: String| {
@@ -202,20 +211,13 @@ impl Ctx {
             force,
             &note,
         )?;
-        let downloaded = matches!(freshness, Freshness::Refreshed);
-        match freshness {
-            Freshness::Stale(e) => self.note(format!(
-                "warning: ModMed's directory could not be downloaded ({}); using the copy from {}",
-                e.message(),
-                rfc3339(index.fetched_at.max(0) as u64)
-            )),
-            Freshness::Refreshed => self.note(format!(
+        if matches!(freshness, Freshness::Refreshed) {
+            self.note(format!(
                 "downloaded ModMed's directories: {} practices",
                 index.orgs.len()
-            )),
-            Freshness::Cached => {}
+            ));
         }
-        Ok((index, downloaded))
+        Ok((index, freshness))
     }
 
     /// `--org` for a sign-in: `test` for the test server (`config set

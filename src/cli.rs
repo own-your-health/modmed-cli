@@ -101,9 +101,11 @@ pub enum OrgsCmd {
     #[command(visible_alias = "ls")]
     List(OrgListArgs),
     /// The practices whose name, id, subdomain, city, state or NPI contains
-    /// every word of TEXT.
+    /// every word given.
     Search {
-        text: String,
+        /// Words to match, any case: `modmed orgs search dermatology springfield`.
+        #[arg(required = true, num_args = 1.., value_name = "WORD")]
+        words: Vec<String>,
         #[command(flatten)]
         list: OrgListArgs,
     },
