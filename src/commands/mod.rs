@@ -10,6 +10,7 @@ pub mod orgs;
 pub mod patients;
 pub mod profiles;
 pub mod records;
+pub mod registration;
 
 use std::any::Any;
 use std::path::PathBuf;
@@ -251,8 +252,11 @@ impl Ctx {
                 environment.as_str()
             ))
             .with_remedy(match environment {
-                Environment::Production => "run `modmed auth set-credential`",
-                Environment::Test => "run `modmed auth set-credential --test`",
+                Environment::Production => format!(
+                    "register your own app with ModMed (`{BIN} registration` prints the form's values; {}), then run `{BIN} auth set-credential`",
+                    crate::registration::DOC
+                ),
+                Environment::Test => format!("run `{BIN} auth set-credential --test`"),
             })
         })
     }

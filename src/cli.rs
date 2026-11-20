@@ -61,6 +61,10 @@ pub enum Command {
     /// Non-secret settings: the redirect, a test server, the directory.
     #[command(subcommand)]
     Config(ConfigCmd),
+    /// What to enter on ModMed's vendor dashboard to register your own app
+    /// (registration/v1), and whether its client is stored. Step by step:
+    /// docs/registration.md.
+    Registration,
     /// Update to the latest release from GitHub.
     SelfUpdate(SelfUpdateArgs),
     /// Print a shell completion script.
@@ -82,6 +86,7 @@ impl Command {
             Command::Orgs(_)
             | Command::Profiles(_)
             | Command::Config(_)
+            | Command::Registration
             | Command::SelfUpdate(_)
             | Command::Completions { .. }
             | Command::Info => false,

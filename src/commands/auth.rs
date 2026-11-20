@@ -408,7 +408,7 @@ fn status(ctx: &Ctx) -> Result<(), CliError> {
                     "not stored (`modmed auth set-credential --test`, test servers only)"
                         .to_string()
                 } else {
-                    "not stored (`modmed auth set-credential`)".to_string()
+                    "not stored (register your own app: `modmed registration`; then `modmed auth set-credential`)".to_string()
                 }
             );
         }

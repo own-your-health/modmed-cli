@@ -21,11 +21,13 @@ and the `pk-med-*` crates from
 | `src/export.rs` | what `records export` pulls, in order, the splits on a 400, attachments, and which failures skip rather than stop |
 | `src/commands/documents.rs` | `documents list|download` over DocumentReference attachments |
 | `src/config.rs` | the config: redirect port and page, the test server, the directory URL, the profiles and each one's grants |
-| `src/credentials.rs` | the app's client id and secret: the vault entries `_client/production` and `_client/test` |
+| `src/credentials.rs` | the app's client id and secret: the vault entries `_client/production` and `_client/test`, and `client_stored`, which sees an entry from its file name with no Keychain read |
+| `src/registration.rs` | what to enter on ModMed's vendor dashboard (`modmed registration`, `registration/v1`); `docs/registration.md` says the same, and `tests/registration.rs` holds the two together |
 | `src/fsutil.rs` | owner-only files written whole |
 | `site/` | GitHub Pages (`.github/workflows/pages.yml`): `callback.html`, the https page a practice may redirect a sign-in to, forwarding it to `http://127.0.0.1:7470/callback`; `tests/site.rs` checks its target and its CSP hashes |
 | `examples/mock_modmed.rs` | `make mock`: medical-common's mock SMART + FHIR server and a synthetic directory, for dogfooding |
 | `docs/api.md` | ModMed's API and terms, quoted, with sources and traps; read before changing auth, the directory or export |
+| `docs/registration.md` | registering a household's own app on ModMed's vendor dashboard, step by step, with the labels the dashboard shows |
 
 ## Medical data
 
@@ -117,6 +119,8 @@ Medical records are the most sensitive data a household has.
 - `tests/fixture_shapes.rs`: the directory fixtures keep their dummy shapes
   and parse.
 - `tests/site.rs`: the forwarding page's target and Content-Security-Policy.
+- `tests/registration.rs`: docs/registration.md gives the app form, the
+  scope boxes and the 27 types as `modmed registration` does.
 - `tests/no_personal_data.rs`: personal-data shapes in tracked files.
 - Unit tests in each module.
 

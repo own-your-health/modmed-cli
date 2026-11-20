@@ -577,7 +577,10 @@ fn a_practice_signs_in_with_the_production_client_only() {
     )
     .unwrap_err();
     assert_eq!(err.exit_code(), 3, "{err}");
-    assert_eq!(err.remedy(), Some("run `modmed auth set-credential`"));
+    assert_eq!(
+        err.remedy(),
+        Some("register your own app with ModMed (`modmed registration` prints the form's values; https://github.com/piekstra/modmed-cli/blob/main/docs/registration.md), then run `modmed auth set-credential`")
+    );
     assert!(mock.requests().is_empty());
     // A practice the directory does not list is not found, with the search
     // as the remedy.
