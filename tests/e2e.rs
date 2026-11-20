@@ -666,7 +666,9 @@ fn a_sign_in_through_a_forwarding_page_reaches_the_listener_and_names_the_page()
         .find(|r| r.path() == "/token")
         .unwrap();
     assert!(
-        token.body.contains("redirect_uri=https%3A%2F%2Fcb.example"),
+        token
+            .body
+            .contains("redirect_uri=https%3A%2F%2Fcb.example%2Fmodmed-cli%2Fcallback"),
         "{}",
         token.body
     );

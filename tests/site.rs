@@ -57,13 +57,43 @@ fn the_callback_page_s_policy_allows_exactly_its_own_script_and_style() {
     assert!(policy.starts_with("default-src 'none'"), "{policy}");
 }
 
+/// `directive` allows exactly one hashed source of its kind.
+fn one_hash(directive: &str, kind: &str) -> bool {
+    directive
+        .strip_prefix(kind)
+        .and_then(|rest| rest.strip_prefix(" 'sha256-"))
+        .is_some_and(|rest| rest.ends_with('\'') && !rest.contains(' '))
+}
+
 #[test]
 fn every_page_loads_nothing_from_elsewhere() {
     for name in ["index.html", "callback.html"] {
         let html = page(name);
-        assert!(html.contains("default-src 'none'"), "{name}");
-        assert!(!html.contains("<script src"), "{name}");
-        assert!(!html.contains("<link"), "{name}");
-        assert!(!html.contains("<img"), "{name}");
+        // The policy is the guard: nothing beyond the page's own hashed
+        // script and style.
+        let policy = html
+            .split("Content-Security-Policy\" content=\"")
+            .nth(1)
+            .unwrap()
+            .split('"')
+            .next()
+            .unwrap();
+        for directive in policy.split(';').map(str::trim) {
+            assert!(
+                directive == "default-src 'none'"
+                    || directive == "base-uri 'none'"
+                    || directive == "form-action 'none'"
+                    || one_hash(directive, "script-src")
+                    || one_hash(directive, "style-src"),
+                "{name}: {directive}"
+            );
+        }
+        // And nothing in the markup asks for anything.
+        let lower = html.to_ascii_lowercase();
+        for loads in [
+            "src=", "<link", "<iframe", "<object", "<embed", "@import", "url(",
+        ] {
+            assert!(!lower.contains(loads), "{name} has {loads}");
+        }
     }
 }
