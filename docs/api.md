@@ -129,14 +129,6 @@ launch/patient", recommended "fhirUser, online_access, patient/*.rs".
 These are recorded here when the registered app first signs in, with counts
 and statuses only:
 
-- whether ModMed accepts `http://127.0.0.1:7470/callback` as the redirect.
-  If it accepts only https, register
-  `https://piekstra.github.io/modmed-cli/callback` and `modmed config set
-  redirect_page https://piekstra.github.io/modmed-cli/callback`. That page
-  (`site/callback.html`, published by `.github/workflows/pages.yml`) passes
-  the query unchanged to `http://127.0.0.1:7470/callback`, so
-  `redirect_port` stays 7470 with it. modmed sends the page as
-  `redirect_uri` in both the authorization and the token exchange;
 - how long the access and refresh tokens last, and whether refresh tokens
   rotate;
 - whether a parent's portal account picks a child's record in the patient
@@ -147,13 +139,31 @@ and statuses only:
 
 ## Registration
 
-The vendor dashboard's sign-up is self-service (a Keycloak form): first and
-last name, email, company name, website, street, city, region, postal code,
-country, phone, a company description and a password. The app is configured
-after it. Terms 2.3.1: "As part of our review of your registration, we may
-request additional information." The registered client id and secret go in
-with `modmed auth set-credential` (a prompt that does not echo, `--stdin` or
-`--from-env`), into the vault entry `_client/production`.
+[registration.md](registration.md) walks through the vendor dashboard and
+`modmed registration` prints its values. What the sign-in depends on:
+
+- The dashboard takes one Redirect URL per app and refuses
+  `http://127.0.0.1:7470/callback`: the create call
+  (`/v1/vendor-app/create`) answers 400 "Content type 'text/html' not
+  supported", every time. The app registers
+  `https://piekstra.github.io/modmed-cli/callback` instead
+  (`site/callback.html`, published by `.github/workflows/pages.yml`), which
+  passes the query unchanged to `http://127.0.0.1:7470/callback`, so
+  `redirect_port` stays 7470. With `modmed config set redirect_page
+  https://piekstra.github.io/modmed-cli/callback`, modmed sends the page as
+  `redirect_uri` in both the authorization and the token exchange.
+- Access Type "Client-Confidential" with "Use PKCE S256" is a
+  `client_secret_post` client with PKCE, as modmed signs in.
+- The scopes are checkboxes: the 27 `patient/<Type>.rs`, and `openid`,
+  `fhirUser`, `launch/patient` and `offline_access` among `online_access`,
+  `launch`, `launch/encounter` and `profile`. The same 27 types are offered
+  as `user/<Type>.rs`, for provider apps.
+- A new app is "Disabled" until "Request to Enable App" and ModMed's
+  approval ("Pending for Approval" in between). The dashboard shows no
+  token or refresh-token lifetime.
+- The registered client id and secret go in with `modmed auth
+  set-credential` (a prompt that does not echo, `--stdin` or
+  `--from-env`), into the vault entry `_client/production`.
 
 ## The Certified API Terms of Use
 
@@ -239,3 +249,7 @@ Traps:
   parameter for.
 - A refused or missing refresh token is exit 3; the patient signs in again
   at the practice.
+- No client stored for the environment a practice needs is exit 2 with the
+  reason `no-client` (medical-common's `missing_client`), before any
+  request; the remedy names docs/registration.md, `modmed registration`
+  and `modmed auth set-credential`.

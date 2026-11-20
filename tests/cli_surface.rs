@@ -89,6 +89,7 @@ fn every_command_renders_help() {
         vec!["config", "show", "--help"],
         vec!["config", "set", "--help"],
         vec!["config", "unset", "--help"],
+        vec!["registration", "--help"],
         vec!["self-update", "--help"],
         vec!["completions", "--help"],
         vec!["info", "--help"],
@@ -153,6 +154,128 @@ fn info_is_cli_info() {
     assert!(v.to_string().contains("piekstra/modmed-cli"));
     // No MCP surface.
     assert!(!v.to_string().contains("mcp"));
+    // Whether a client is stored, read with no Keychain item, and the
+    // registration command.
+    assert_eq!(v["client"], json!({"configured": false}));
+    assert!(v["capabilities"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("registration")));
+    assert!(v["auth"]["login_hint"]
+        .as_str()
+        .unwrap()
+        .starts_with("modmed registration (an app of your own, docs/registration.md)"));
+}
+
+/// The vault file `pk-cli-vault/1` keeps an entry in, as the vault names it.
+fn plant_vault_entry(home: &std::path::Path, entry: &str) {
+    use sha2::{Digest, Sha256};
+    let digest = Sha256::new()
+        .chain_update(b"pk-cli-vault/1\0")
+        .chain_update(entry.as_bytes())
+        .finalize();
+    let name: String = digest.iter().map(|b| format!("{b:02x}")).collect();
+    let dir = home.join("config/modmed/vault.piekstra.modmed.hermetic-tests");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join(format!("{name}.pkv")), "not a sealed entry").unwrap();
+}
+
+#[test]
+fn registration_prints_the_form_s_values() {
+    let home = tmp();
+    let v = stdout_json(modmed(&home).args(["registration", "--json"]));
+    assert_eq!(v["schema"], "registration/v1");
+    assert_eq!(v["cli"], "modmed");
+    assert_eq!(v["vendor"], "ModMed");
+    assert_eq!(
+        v["portal"],
+        "https://fhir-vendor-dashboard.kube.prod.mmicse.com"
+    );
+    assert_eq!(v["doc"], "docs/registration.md");
+    assert_eq!(v["launch"], "standalone-patient");
+    assert_eq!(v["client_type"], "confidential-symmetric");
+    assert_eq!(v["pkce"], "S256");
+    assert_eq!(v["store"], "modmed auth set-credential");
+    assert_eq!(
+        v["redirect_uris"],
+        json!(["https://piekstra.github.io/modmed-cli/callback"])
+    );
+    assert_eq!(v["scopes"].as_array().unwrap().len(), 31);
+    let value = |group: &str, label: &str| -> Value {
+        v[group]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|f| f["label"] == label)
+            .unwrap_or_else(|| panic!("no {label}"))["value"]
+            .clone()
+    };
+    assert_eq!(value("fields", "App Type"), "Patient");
+    assert_eq!(value("fields", "Access Type"), "Client-Confidential");
+    assert_eq!(value("fields", "PKCE"), "Use PKCE S256");
+    assert_eq!(
+        value("urls", "Redirect URL"),
+        "https://piekstra.github.io/modmed-cli/callback"
+    );
+    // Until redirect_page is set, a note names the command that sets it.
+    assert!(v["notes"].to_string().contains(
+        "`modmed config set redirect_page https://piekstra.github.io/modmed-cli/callback`"
+    ));
+
+    // A page of one's own is the one to register, and once set the note
+    // that sets it goes.
+    modmed(&home)
+        .args([
+            "config",
+            "set",
+            "redirect_page",
+            "https://cb.example/modmed/callback",
+        ])
+        .assert()
+        .success();
+    let v = stdout_json(modmed(&home).args(["registration", "--json"]));
+    assert_eq!(
+        v["redirect_uris"],
+        json!(["https://cb.example/modmed/callback"])
+    );
+    let own = v["urls"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["label"] == "Redirect URL")
+        .unwrap()["value"]
+        .clone();
+    assert_eq!(own, "https://cb.example/modmed/callback");
+    assert!(!v["notes"].to_string().contains("config set redirect_page"));
+
+    let text = modmed(&home).arg("registration").assert().success();
+    let text = String::from_utf8_lossy(&text.get_output().stdout).to_string();
+    assert!(text.starts_with(
+        "Register modmed with ModMed: https://fhir-vendor-dashboard.kube.prod.mmicse.com\n"
+    ));
+    for needle in [
+        "https://cb.example/modmed/callback",
+        "patient/Specimen.rs",
+        "Then store what the portal gives back: modmed auth set-credential",
+    ] {
+        assert!(text.contains(needle), "no {needle:?} in\n{text}");
+    }
+}
+
+#[test]
+fn info_sees_a_stored_client_without_reading_it() {
+    let home = tmp();
+    // The planted file is not a sealed entry, and nothing opens it: `info`
+    // reads no Keychain item.
+    plant_vault_entry(&home, "_client/test");
+    let v = stdout_json(modmed(&home).arg("info"));
+    assert_eq!(
+        v["client"],
+        json!({"configured": true, "registration": "test", "client_type": "confidential-symmetric", "stored_in": "vault"})
+    );
+    plant_vault_entry(&home, "_client/production");
+    let v = stdout_json(modmed(&home).arg("info"));
+    assert_eq!(v["client"]["registration"], "production");
 }
 
 #[test]
@@ -304,6 +427,7 @@ fn a_login_command_needs_a_configured_profile_and_never_picks_one() {
         vec!["orgs", "list"],
         vec!["config", "show"],
         vec!["info"],
+        vec!["registration"],
         vec![
             "auth",
             "set-credential",

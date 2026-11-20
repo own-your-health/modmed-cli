@@ -9,12 +9,21 @@ computer and sends nothing anywhere else ([PRIVACY.md](PRIVACY.md)).
 Unofficial; not affiliated with or endorsed by ModMed (Modernizing
 Medicine, Inc.).
 
+## Who it is for
+
+Anyone with a patient portal account at a practice that runs a ModMed EHR.
+`modmed orgs search` finds the practice in ModMed's public directory. There
+is no shared app to sign in with: ModMed's terms keep an app's client id and
+secret out of open source projects, so each household registers its own app
+once (about 15 minutes of forms, then ModMed's review) and keeps the pair in
+modmed's vault.
+
 ## Status
 
-v0.1.0. The sign-in, `records export` and `documents` are tested against
+v0.2.0. The sign-in, `records export` and `documents` are tested against
 medical-common's mock server; ModMed has no sandbox for this API, so the
-first real sign-in comes with the household's own registered app.
-[docs/api.md](docs/api.md) lists what is known only after it.
+first real sign-in comes with a registered app. [docs/api.md](docs/api.md)
+lists what is known only after it.
 
 ## Install
 
@@ -33,43 +42,56 @@ modmed self-update                            # later releases
 
 From source: `make install`.
 
-## Setup
+## Register your app (once)
 
-ModMed's API needs a registered app, and its terms keep the app's client id
-and secret out of open source projects, so each household registers its
-own:
+[docs/registration.md](docs/registration.md) walks through ModMed's FHIR
+vendor dashboard step by step, and `modmed registration` prints every value
+to enter (`--json` for a program). In short: a developer account, then a
+Patient app, Client-Confidential, PKCE S256, the 31 scopes modmed asks for,
+and the redirect URL `https://piekstra.github.io/modmed-cli/callback`, a page
+that passes the sign-in's answer to modmed on your computer (the dashboard
+refuses `http://127.0.0.1`). Then "Request to Enable App" and wait for
+ModMed's approval.
 
-1. Sign up on ModMed's FHIR vendor dashboard (linked from
-   [portal.api.modmed.com](https://portal.api.modmed.com)) and accept the
-   Certified API Terms of Use. ModMed reviews the registration.
-2. Configure one app: a patient app, standalone launch, the scopes
-   `openid fhirUser launch/patient offline_access` and `patient/<Type>.rs`
-   for the types it reads, and the redirect URI
-   `http://127.0.0.1:7470/callback`. If ModMed takes only https, register
-   `https://piekstra.github.io/modmed-cli/callback`, a page that passes the
-   answer on to that address, and run `modmed config set redirect_page
-   https://piekstra.github.io/modmed-cli/callback`.
-3. Store the client id and secret in modmed's vault (one for every profile
-   and practice):
+## Quick start
 
 ```sh
-modmed auth set-credential                 # asks for each without echoing it
-op read "op://<vault>/<item>/pair" | modmed auth set-credential --stdin   # `<id>:<secret>`
-```
+# The app's pair, from the dashboard (asks for each without echoing it),
+# and the redirect page it was registered with.
+modmed auth set-credential
+modmed config set redirect_page https://piekstra.github.io/modmed-cli/callback
 
-4. Find the practice, add a profile for each patient portal account, and
-   sign in on the practice's own portal page:
-
-```sh
-modmed orgs search dermatology springfield        # ModMed's directory, downloaded weekly
+# One profile per patient portal account; find the practice; sign in.
 modmed profiles add adult1
-modmed auth login --profile adult1 --org <ID> --label adult1   # Chrome, in adult1's own browser profile
+modmed orgs search dermatology springfield        # ModMed's directory, downloaded weekly
+modmed auth login --profile adult1 --org <ID> --label adult1
+
+# The records, as records-stream/v1 NDJSON, or filed by medrec.
+modmed records export --profile adult1 --patient adult1 --ndjson > adult1.ndjson
+medrec config set providers modmed                # until medrec lists modmed itself
+medrec --profile <FOLDER> import --from modmed --from-profile adult1 --patient adult1 --person <WHO>
 ```
 
-The sign-in is the practice's patient portal account. Each practice is its
-own sign-in, and each profile signs in in its own Chrome profile, so one
-account's cookies never sign in another. `MODMED_PROFILE` stands in for
-`--profile`; there is no default.
+`auth login` opens the practice's patient portal sign-in in Chrome, in the
+profile's own Chrome profile, so one account's cookies never sign in
+another. Each practice is its own sign-in. `MODMED_PROFILE` stands in for
+`--profile`; there is no default. `modmed info` and `modmed auth status
+--profile <NAME>` say whether the app's client is stored.
+
+### What needs a person
+
+| Step | What the person does |
+|---|---|
+| Registration | Fills in the dashboard's two forms, and opens the email's verification link within 5 minutes |
+| ModMed's review | Nothing; ModMed publishes no review time |
+| `auth login` | Signs in on the practice's portal page with their own password and any code the portal sends, then approves the app's access |
+| A new or upgraded `modmed` on macOS | Allows its first read of the vault's key in the Keychain dialog ("Always Allow") |
+
+`records export`, `documents` and `api` need no one: modmed renews the
+sign-in itself with the refresh token `offline_access` grants. ModMed does
+not publish how long the tokens last; [docs/api.md](docs/api.md) records it
+after the first real sign-in. When a renewal is refused, the error names
+the `modmed auth login` command that signs the patient in again.
 
 ## Use
 
@@ -113,6 +135,7 @@ fails. Every sign-in error ends with the `modmed` command that fixes it.
 | `modmed records export --profile <NAME> --ndjson\|-o <DIR> [--since <DATE>]` | the patient's records as `records-stream/v1`; `-o` for test servers only |
 | `modmed documents list\|download --profile <NAME>` | the patient's documents (`documents/v1`) |
 | `modmed api --profile <NAME> GET <PATH>` | one FHIR read as the patient |
+| `modmed registration` | what to enter on ModMed's vendor dashboard to register your own app (`registration/v1`), and whether its client is stored |
 | `modmed config path\|show\|set\|unset` | `redirect_port` (default 7470), `redirect_page`, `test_fhir_base`, `directory_url` |
 | `modmed self-update`, `modmed completions <SHELL>`, `modmed info` | the family's standard commands |
 

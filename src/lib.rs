@@ -11,4 +11,5 @@ pub mod export;
 pub mod fsutil;
 pub mod modmed;
 pub mod orgs;
+pub mod registration;
 pub mod session;

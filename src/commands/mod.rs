@@ -10,6 +10,7 @@ pub mod orgs;
 pub mod patients;
 pub mod profiles;
 pub mod records;
+pub mod registration;
 
 use std::any::Any;
 use std::path::PathBuf;
@@ -245,16 +246,8 @@ impl Ctx {
     /// The client credentials for an environment, or the auth error that
     /// says how to store them.
     pub fn client(&self, environment: Environment) -> Result<ClientCredentials, CliError> {
-        credentials::read_client(&self.vault, environment)?.ok_or_else(|| {
-            CliError::Auth(format!(
-                "no {} client id and secret are stored",
-                environment.as_str()
-            ))
-            .with_remedy(match environment {
-                Environment::Production => "run `modmed auth set-credential`",
-                Environment::Test => "run `modmed auth set-credential --test`",
-            })
-        })
+        credentials::read_client(&self.vault, environment)?
+            .ok_or_else(|| crate::registration::no_client(environment))
     }
 
     /// A grant's sign-in, renewed when its token has lapsed.
