@@ -112,8 +112,8 @@ Medical records are the most sensitive data a household has.
   results, a refused token renewed once, a refused renewal, a declined
   consent, `-o` refused for a practice's patient, two patients and logout,
   a sign-in through a forwarding page, a practice that needs the production
-  client, sign-ins pointing elsewhere, documents list and download, and a document that fails its
-  check.
+  client, sign-ins pointing elsewhere, documents list and download, and a
+  document that fails its check.
 - `tests/fixture_shapes.rs`: the directory fixtures keep their dummy shapes
   and parse.
 - `tests/site.rs`: the forwarding page's target and Content-Security-Policy.
