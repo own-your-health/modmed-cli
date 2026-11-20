@@ -615,6 +615,67 @@ fn a_stored_sign_in_pointing_elsewhere_is_refused_before_any_renewal() {
 }
 
 #[test]
+fn a_sign_in_through_a_forwarding_page_reaches_the_listener_and_names_the_page() {
+    let dir = tempfile::tempdir().unwrap();
+    let mock = MockServer::start();
+    let mut ctx = ctx(dir.path(), &mock);
+    let page = "https://cb.example/modmed-cli/callback";
+    mock.accept_redirect(page);
+    let port = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port();
+    let mut config = ctx.config().unwrap();
+    config.set("redirect_page", page).unwrap();
+    config.set("redirect_port", &port.to_string()).unwrap();
+    ctx.save_config(&config).unwrap();
+    // The browser lands on the page, which passes the query on to the
+    // listener unchanged (site/callback.html).
+    ctx.window = Box::new(move |_: &ProfileName, url: &str| {
+        let url = url.to_string();
+        std::thread::spawn(move || {
+            let answer = http_get(&url).expect("the mock answers the authorization");
+            assert_eq!(answer.status, 302, "{}", answer.body);
+            let back = answer.header("location").unwrap().to_string();
+            let query = back
+                .strip_prefix(page)
+                .expect("the practice redirects to the page");
+            http_get(&format!("http://127.0.0.1:{port}/callback{query}"))
+                .expect("modmed's listener answers the forwarded redirect");
+        });
+        Ok(Box::new(()) as Box<dyn Any>)
+    });
+    login(&ctx, "adult1");
+    let authorize = mock
+        .requests()
+        .into_iter()
+        .find(|r| r.path() == "/authorize")
+        .unwrap();
+    assert!(
+        authorize
+            .target
+            .contains("redirect_uri=https%3A%2F%2Fcb.example%2Fmodmed-cli%2Fcallback"),
+        "{}",
+        authorize.target
+    );
+    // The mock refuses an exchange whose redirect_uri is not the page.
+    let token = mock
+        .requests()
+        .into_iter()
+        .find(|r| r.path() == "/token")
+        .unwrap();
+    assert!(
+        token
+            .body
+            .contains("redirect_uri=https%3A%2F%2Fcb.example%2Fmodmed-cli%2Fcallback"),
+        "{}",
+        token.body
+    );
+    assert_eq!(settings(&ctx).grants.len(), 1);
+}
+
+#[test]
 fn api_reads_under_the_practice_s_fhir_base_only() {
     let dir = tempfile::tempdir().unwrap();
     let mock = MockServer::start();

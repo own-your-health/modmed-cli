@@ -45,7 +45,10 @@ own:
 2. Configure one app: a patient app, standalone launch, the scopes
    `openid fhirUser launch/patient offline_access` and `patient/<Type>.rs`
    for the types it reads, and the redirect URI
-   `http://127.0.0.1:7470/callback`.
+   `http://127.0.0.1:7470/callback`. If ModMed takes only https, register
+   `https://piekstra.github.io/modmed-cli/callback`, a page that passes the
+   answer on to that address, and run `modmed config set redirect_page
+   https://piekstra.github.io/modmed-cli/callback`.
 3. Store the client id and secret in modmed's vault (one for every profile
    and practice):
 

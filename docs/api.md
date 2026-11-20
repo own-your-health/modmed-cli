@@ -130,9 +130,13 @@ These are recorded here when the registered app first signs in, with counts
 and statuses only:
 
 - whether ModMed accepts `http://127.0.0.1:7470/callback` as the redirect.
-  If it accepts only https, register an https page that forwards to the
-  loopback with the query unchanged (as mychart's) and `modmed config set
-  redirect_page <URL>`;
+  If it accepts only https, register
+  `https://piekstra.github.io/modmed-cli/callback` and `modmed config set
+  redirect_page https://piekstra.github.io/modmed-cli/callback`. That page
+  (`site/callback.html`, published by `.github/workflows/pages.yml`) passes
+  the query unchanged to `http://127.0.0.1:7470/callback`, so
+  `redirect_port` stays 7470 with it. modmed sends the page as
+  `redirect_uri` in both the authorization and the token exchange;
 - how long the access and refresh tokens last, and whether refresh tokens
   rotate;
 - whether a parent's portal account picks a child's record in the patient
