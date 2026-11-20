@@ -50,8 +50,9 @@ Medical records are the most sensitive data a household has.
   Every command that uses a sign-in (`auth login|status|logout`,
   `patients`, `records`, `documents`, `api`) needs `--profile <NAME>` or
   `MODMED_PROFILE`; there is no default, and a lone profile is never picked
-  (exit 2, listing them). `orgs`, `profiles`, `config`, `auth
-  set-credential` and `info` take none.
+  (exit 2, listing them). `orgs`, `profiles`, `config`, `registration`,
+  `auth set-credential`, `self-update`, `completions` and `info` take none,
+  and refuse one (exit 2).
 - Every secret is in modmed's vault (cli-common `pk_cli_auth::vault`):
   encrypted files in `~/.config/modmed/vault/` under one Keychain item, the
   key `vault-key` in service `piekstra.modmed`. A newly built modmed asks
