@@ -91,7 +91,10 @@ fn run(cli: &Cli) -> Result<(), CliError> {
                 .push(pk_med_records::REGISTRATION.to_string());
             // Which clients are stored, from the vault's file names: no
             // Keychain read, since a records store runs `info` unattended.
-            let clients = modmed::registration::client_statuses(&ctx.vault, &ctx.config()?)?;
+            // The config only names the test server and the redirect, so a
+            // config that does not load leaves `info` working.
+            let config = ctx.config().unwrap_or_default();
+            let clients = modmed::registration::client_statuses(&ctx.vault, &config)?;
             output::json(&pk_med_smart::with_clients(&info, &clients)?);
             Ok(())
         }

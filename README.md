@@ -20,7 +20,7 @@ modmed's vault.
 
 ## Status
 
-v0.2.0. The sign-in, `records export` and `documents` are tested against
+The sign-in, `records export` and `documents` are tested against
 medical-common's mock server; ModMed has no sandbox for this API, so the
 first real sign-in comes with a registered app. [docs/api.md](docs/api.md)
 lists what is known only after it.

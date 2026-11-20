@@ -248,7 +248,12 @@ impl Ctx {
     pub fn client(&self, environment: Environment) -> Result<ClientCredentials, CliError> {
         match credentials::read_client(&self.vault, environment)? {
             Some(client) => Ok(client),
-            None => Err(crate::registration::no_client(environment, &self.config()?)),
+            // The config only names the test server and the redirect in
+            // the remedy, so the missing client is the error either way.
+            None => Err(crate::registration::no_client(
+                environment,
+                &self.config().unwrap_or_default(),
+            )),
         }
     }
 

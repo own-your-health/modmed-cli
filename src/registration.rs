@@ -6,8 +6,8 @@
 //!   version 3.0.0 of the dashboard shows. docs/registration.md walks
 //!   through the same steps, sign-up included, and `tests/registration.rs`
 //!   holds the two together.
-//! - `test`: a test server on this machine (`make mock`), whose synthetic
-//!   pair is never ModMed's (`modmed registration --test`).
+//! - `test`: a local test server standing in for ModMed (`make mock`),
+//!   whose synthetic pair is never ModMed's (`modmed registration --test`).
 
 use pk_cli_auth::vault::Vault;
 use pk_cli_core::CliError;
@@ -99,15 +99,13 @@ fn production(config: &Config) -> Registration {
 }
 
 fn test(config: &Config) -> Registration {
-    let server = config
-        .test_fhir_base
-        .clone()
-        .filter(|b| !b.is_empty())
-        .unwrap_or_else(|| "<the test server's FHIR base>".into());
+    // A test server stands in for ModMed, so the vendor stays ModMed:
+    // missing_client says "no ModMed client is configured for the test
+    // registration". The portal is the server, once configured.
+    let server = config.test_fhir_base.clone().unwrap_or_default();
     Registration::new(
         "modmed",
-        // missing_client says "no {vendor} client is configured".
-        "local test server",
+        "ModMed",
         server,
         TEST_DOC,
         CLIENT_TYPE,
@@ -117,7 +115,7 @@ fn test(config: &Config) -> Registration {
     .command("modmed registration --test")
     .redirect_uri(config.redirect_uri())
     .scopes(&scopes())
-    .note("A test server has no form: `make mock` prints its synthetic pair, which goes in with `modmed auth set-credential --test --stdin`. ModMed's pair never goes to a test server.")
+    .note("A local test server (`make mock`) has no form: it prints its synthetic pair, which goes in with `modmed auth set-credential --test --stdin`. ModMed's pair never goes to a test server.")
     .note("`modmed config set test_fhir_base <BASE>` names the server, for `--org test`.")
 }
 
@@ -215,7 +213,7 @@ mod tests {
         let test = no_client(Environment::Test, &config);
         assert!(test
             .to_string()
-            .starts_with("no local test server client is configured for the test registration — "));
+            .starts_with("no ModMed client is configured for the test registration — "));
         assert_eq!(
             test.remedy(),
             Some(format!("register one by following {TEST_DOC}, entering what `modmed registration --test` prints, then run `modmed auth set-credential --test`").as_str())

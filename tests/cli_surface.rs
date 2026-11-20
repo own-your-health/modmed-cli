@@ -296,8 +296,20 @@ fn info_sees_a_stored_client_without_reading_it() {
 }
 
 #[test]
+fn info_answers_with_a_config_that_does_not_load() {
+    let home = tmp();
+    std::fs::write(home.join("config/modmed/config.json"), "{ not json").unwrap();
+    let v = stdout_json(modmed(&home).arg("info"));
+    assert_eq!(v["clients"].as_array().unwrap().len(), 2);
+}
+
+#[test]
 fn registration_test_prints_the_test_server_s() {
     let home = tmp();
+    // Before a server is configured, the portal is empty, not a placeholder.
+    let v = stdout_json(modmed(&home).args(["registration", "--test", "--json"]));
+    assert_eq!(v["portal"], "");
+    assert_eq!(v["vendor"], "ModMed");
     modmed(&home)
         .args(["config", "set", "test_fhir_base", "http://127.0.0.1:9/fhir"])
         .assert()

@@ -326,9 +326,9 @@ fn verify(t: &pk_cli_http::BlockingTransport, session: &SmartSession, patient: &
 }
 
 /// `auth-status/v1` with `profile`, medical-common's `clients` (one row per
-/// registration, from the vault's file names) and `patients` rows. A
-/// sign-in that cannot be read is its row's `error`, not the command's
-/// failure.
+/// registration, from the vault's file names; a vault directory that
+/// cannot be read fails the command) and `patients` rows. A sign-in that
+/// cannot be read is its patient row's `error`, not the command's failure.
 pub fn status_of(ctx: &Ctx) -> Result<(AuthStatus, Value), CliError> {
     let config = ctx.config()?;
     let profile = ctx.profile(&config)?;
