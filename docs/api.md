@@ -250,6 +250,7 @@ Traps:
 - A refused or missing refresh token is exit 3; the patient signs in again
   at the practice.
 - No client stored for the environment a practice needs is exit 2 with the
-  reason `no-client` (medical-common's `missing_client`), before any
-  request; the remedy names docs/registration.md, `modmed registration`
-  and `modmed auth set-credential`.
+  reason `no_client` (medical-common's `missing_client`), before any
+  request. The remedy names the guide's URL, `modmed registration` and
+  `modmed auth set-credential` (with `--test` for a test server's). With
+  `--json` the error carries `reason` and `remedy` beside `message`.

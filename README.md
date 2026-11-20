@@ -135,7 +135,7 @@ fails. Every sign-in error ends with the `modmed` command that fixes it.
 | `modmed records export --profile <NAME> --ndjson\|-o <DIR> [--since <DATE>]` | the patient's records as `records-stream/v1`; `-o` for test servers only |
 | `modmed documents list\|download --profile <NAME>` | the patient's documents (`documents/v1`) |
 | `modmed api --profile <NAME> GET <PATH>` | one FHIR read as the patient |
-| `modmed registration` | what to enter on ModMed's vendor dashboard to register your own app (`registration/v1`), and whether its client is stored |
+| `modmed registration` | what to enter on ModMed's vendor dashboard to register your own app (`registration/v2`); `--test`: a test server's |
 | `modmed config path\|show\|set\|unset` | `redirect_port` (default 7470), `redirect_page`, `test_fhir_base`, `directory_url` |
 | `modmed self-update`, `modmed completions <SHELL>`, `modmed info` | the family's standard commands |
 

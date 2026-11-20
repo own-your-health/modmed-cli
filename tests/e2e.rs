@@ -556,8 +556,8 @@ fn set_credential_then_status_reads_both() {
     assert_eq!(
         status["clients"],
         serde_json::json!([
-            {"environment": "production", "stored": true},
-            {"environment": "test", "stored": true}
+            {"registration": "production", "configured": true, "client_type": "confidential-symmetric", "stored_in": "vault"},
+            {"registration": "test", "configured": true, "client_type": "confidential-symmetric", "stored_in": "vault"}
         ])
     );
 }
@@ -581,8 +581,9 @@ fn a_practice_signs_in_with_the_production_client_only() {
     assert_eq!(err.exit_code(), 2, "{err}");
     assert_eq!(
         err.remedy(),
-        Some("register one as docs/registration.md describes, entering what `modmed registration` prints, then run `modmed auth set-credential`")
+        Some("register one by following https://github.com/piekstra/modmed-cli/blob/main/docs/registration.md, entering what `modmed registration` prints, then run `modmed auth set-credential`")
     );
+    assert_eq!(err.to_json()["error"]["reason"], "no_client");
     assert!(mock.requests().is_empty());
     // A practice the directory does not list is not found, with the search
     // as the remedy.

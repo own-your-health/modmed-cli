@@ -243,11 +243,13 @@ impl Ctx {
         crate::orgs::resolve(&index.orgs, q).cloned()
     }
 
-    /// The client credentials for an environment, or the auth error that
-    /// says how to store them.
+    /// The client credentials for an environment, or the error that says
+    /// how to register and store them.
     pub fn client(&self, environment: Environment) -> Result<ClientCredentials, CliError> {
-        credentials::read_client(&self.vault, environment)?
-            .ok_or_else(|| crate::registration::no_client(environment))
+        match credentials::read_client(&self.vault, environment)? {
+            Some(client) => Ok(client),
+            None => Err(crate::registration::no_client(environment, &self.config()?)),
+        }
     }
 
     /// A grant's sign-in, renewed when its token has lapsed.

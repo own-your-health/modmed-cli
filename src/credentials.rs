@@ -74,20 +74,6 @@ impl ClientCredentials {
     }
 }
 
-/// Whether the vault holds `environment`'s client, from its file alone: no
-/// Keychain read, so `info` can say it with no dialog.
-/// The file's name is the vault's own (`pk-cli-vault/1`), which
-/// `a_stored_client_is_seen_without_the_key` pins.
-pub fn client_stored(vault: &Vault, environment: Environment) -> bool {
-    use sha2::{Digest, Sha256};
-    let digest = Sha256::new()
-        .chain_update(b"pk-cli-vault/1\0")
-        .chain_update(client_entry(environment).as_bytes())
-        .finalize();
-    let name: String = digest.iter().map(|b| format!("{b:02x}")).collect();
-    vault.dir().join(format!("{name}.pkv")).is_file()
-}
-
 pub fn read_client(
     vault: &Vault,
     environment: Environment,
@@ -106,24 +92,6 @@ pub fn store_client(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn a_stored_client_is_seen_without_the_key() {
-        let dir = tempfile::tempdir().unwrap();
-        let keys = std::sync::Arc::new(pk_cli_auth::vault::MemoryKeys::new());
-        let vault = Vault::new(keys.clone(), dir.path().join("vault"));
-        assert!(!client_stored(&vault, Environment::Test));
-        store_client(
-            &vault,
-            Environment::Test,
-            &ClientCredentials::new("client-one", "secret-one").unwrap(),
-        )
-        .unwrap();
-        let reads = keys.reads();
-        assert!(client_stored(&vault, Environment::Test));
-        assert!(!client_stored(&vault, Environment::Production));
-        assert_eq!(keys.reads(), reads, "the check read the key");
-    }
 
     #[test]
     fn a_pair_reads_in_either_form() {
