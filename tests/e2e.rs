@@ -217,6 +217,8 @@ fn sign_in_then_export_everything_the_patient_has() {
         ("DocumentReference", 1),
         ("Encounter", 1),
         ("Immunization", 1),
+        // A pharmacy fill (medical-common v0.6.5 serves one).
+        ("MedicationDispense", 1),
         ("MedicationRequest", 1),
         ("Observation", 3),
         ("Organization", 2),
@@ -576,10 +578,10 @@ fn a_practice_signs_in_with_the_production_client_only() {
         &AuthCmd::Login(login_args("exampledermatology", None)),
     )
     .unwrap_err();
-    assert_eq!(err.exit_code(), 3, "{err}");
+    assert_eq!(err.exit_code(), 2, "{err}");
     assert_eq!(
         err.remedy(),
-        Some("register your own app with ModMed (`modmed registration` prints the form's values; https://github.com/piekstra/modmed-cli/blob/main/docs/registration.md), then run `modmed auth set-credential`")
+        Some("register one as docs/registration.md describes, entering what `modmed registration` prints, then run `modmed auth set-credential`")
     );
     assert!(mock.requests().is_empty());
     // A practice the directory does not list is not found, with the search

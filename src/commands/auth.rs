@@ -379,8 +379,14 @@ pub fn status_of(ctx: &Ctx) -> Result<(AuthStatus, Value), CliError> {
     status.session_valid = Some(any_usable);
     let mut v = status.to_json();
     v["profile"] = profile.as_str().into();
+    let client = crate::registration::client_status(|e| {
+        clients
+            .iter()
+            .any(|c| c["environment"] == e.as_str() && c["stored"] == true)
+    });
     v["clients"] = Value::Array(clients);
     v["patients"] = Value::Array(rows);
+    let v = pk_med_smart::with_client(&v, &client)?;
     Ok((status, v))
 }
 
@@ -396,6 +402,15 @@ fn status(ctx: &Ctx) -> Result<(), CliError> {
             v["profile"].as_str().unwrap_or_default()
         );
         status.render();
+        let client: pk_med_smart::ClientStatus =
+            serde_json::from_value(v["client"].clone()).unwrap_or_default();
+        println!(
+            "{}",
+            client.text(&crate::registration::registration(
+                crate::registration::REDIRECT_PAGE,
+                true
+            ))
+        );
         for c in &clients {
             println!(
                 "Client ({}): {}",
@@ -408,7 +423,7 @@ fn status(ctx: &Ctx) -> Result<(), CliError> {
                     "not stored (`modmed auth set-credential --test`, test servers only)"
                         .to_string()
                 } else {
-                    "not stored (register your own app: `modmed registration`; then `modmed auth set-credential`)".to_string()
+                    "not stored (`modmed auth set-credential`; to register an app, `modmed registration`)".to_string()
                 }
             );
         }

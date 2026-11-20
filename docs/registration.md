@@ -8,9 +8,9 @@ self-service and free ("Currently, ModMed does not charge", terms 4.2). The
 forms take about 15 minutes. ModMed then reviews the app before it can sign
 anyone in.
 
-`modmed registration` prints the values below (`--json`:
-`registration/v1`), with the redirect from your own config, and whether a
-client is stored yet. It reads no Keychain item and makes no request.
+`modmed registration` prints the app form's values below (`--json`:
+`registration/v1`), with the redirect from your own config. It reads no
+secret and makes no request.
 
 The labels are the ones version 3.0.0 of the dashboard shows. ModMed's own
 guide to the choices is
@@ -36,11 +36,11 @@ guide to the choices is
    | Description of Company or Applications | For example: "An individual using the open-source modmed command-line program to download my own records from my ModMed practice to my own computer." |
    | Password, Confirm Password | A new password; keep it in your password manager. |
 
-3. Submit. The page says "You need to verify your email address to
-   activate your account." The email's subject is "Verify email", from
-   `account@practicemailer.com`, and its link "will expire within 5
-   minutes", so have the inbox open before you submit. The link signs you
-   in on the dashboard.
+3. Submit. The page says "You need to verify your email address to activate
+   your account." The email's subject is "Verify email", from ModMed's
+   `practicemailer.com`, and its link "will expire within 5 minutes", so
+   have the inbox open before you submit. The link signs you in on the
+   dashboard.
 
 The account opens at once. Terms 2.3.1: "As part of our review of your
 registration, we may request additional information." Such a request comes
@@ -61,7 +61,7 @@ table (App Name, Type, Client ID, Secret, Status, Action). Choose
 | Access Type | **Client-Confidential**. modmed sends the client secret in the token request's body (`client_secret_post`). Not "Client-Confidential with JWKS". |
 | PKCE | **Use PKCE S256**. |
 | Launch URL | `https://github.com/piekstra/modmed-cli`. Required once a launch scope is checked: "Base (Launch) Url must be a valid url if a launch scope is present." modmed never uses it; it starts the sign-in itself (a standalone launch). |
-| Redirect URL | `https://piekstra.github.io/modmed-cli/callback`. One URL per app; [section 5](#5-what-the-dashboard-refuses) explains why it is not `http://127.0.0.1:7470/callback`. |
+| Redirect URL | `https://piekstra.github.io/modmed-cli/callback`, or your own copy of the page (section 5). One URL per app; [section 5](#5-what-the-dashboard-refuses) explains why it is not `http://127.0.0.1:7470/callback`. |
 | Logo URL | Optional; leave empty. |
 | Policy URL | `https://github.com/piekstra/modmed-cli/blob/main/PRIVACY.md`. |
 | Terms of Service URL | Optional; leave empty. |
@@ -108,8 +108,9 @@ takes to work after approval is not published either.
 
 ## 4. Store the client id and secret
 
-The row shows the Client ID and Secret in plain text. Store both in
-modmed's vault, which every profile and practice shares:
+The row shows the Client ID and Secret in plain text. Store both with
+`modmed auth set-credential`, in modmed's vault, which every profile and
+practice shares:
 
 ```sh
 modmed auth set-credential                 # asks for each without echoing it
@@ -125,9 +126,10 @@ modmed at the redirect page you registered:
 modmed config set redirect_page https://piekstra.github.io/modmed-cli/callback
 ```
 
-`modmed registration` and `modmed info` now report the production client
-as stored, and `modmed auth status --profile <NAME>` shows "Client
-(production): stored". `modmed auth set-credential --overwrite` replaces a
+`modmed info` now reports the client as configured (`"client":
+{"configured": true, "registration": "production", ...}`), and `modmed auth
+status --profile <NAME>` shows "client: confidential (secret), in vault
+(production)". `modmed auth set-credential --overwrite` replaces a
 pair, for example after ModMed issues a new secret.
 
 ## 5. What the dashboard refuses

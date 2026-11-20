@@ -246,19 +246,8 @@ impl Ctx {
     /// The client credentials for an environment, or the auth error that
     /// says how to store them.
     pub fn client(&self, environment: Environment) -> Result<ClientCredentials, CliError> {
-        credentials::read_client(&self.vault, environment)?.ok_or_else(|| {
-            CliError::Auth(format!(
-                "no {} client id and secret are stored",
-                environment.as_str()
-            ))
-            .with_remedy(match environment {
-                Environment::Production => format!(
-                    "register your own app with ModMed (`{BIN} registration` prints the form's values; {}), then run `{BIN} auth set-credential`",
-                    crate::registration::DOC
-                ),
-                Environment::Test => format!("run `{BIN} auth set-credential --test`"),
-            })
-        })
+        credentials::read_client(&self.vault, environment)?
+            .ok_or_else(|| crate::registration::no_client(environment))
     }
 
     /// A grant's sign-in, renewed when its token has lapsed.

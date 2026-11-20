@@ -67,7 +67,7 @@ fn run(cli: &Cli) -> Result<(), CliError> {
                     required: true,
                     method: "browser-session".into(),
                     login_hint: Some(format!(
-                        "register your own app ({BIN} registration; {}), {BIN} auth set-credential, {BIN} profiles add <NAME>, {BIN} orgs search <WORDS>, then {BIN} auth login --profile <NAME> --org <ORG> --label <WHO>",
+                        "{BIN} registration (an app of your own, {}), {BIN} auth set-credential, {BIN} profiles add <NAME>, {BIN} orgs search <WORDS>, then {BIN} auth login --profile <NAME> --org <ORG> --label <WHO>",
                         modmed::registration::DOC
                     )),
                 },
@@ -87,12 +87,14 @@ fn run(cli: &Cli) -> Result<(), CliError> {
             // Login commands take --profile, so a records store passes one.
             info.capabilities
                 .push(pk_med_records::LOGIN_PROFILES.to_string());
-            let mut v = serde_json::to_value(&info).expect("CliInfo serializes to JSON");
-            // Which app clients are stored, from the vault's file names: no
+            info.capabilities
+                .push(pk_med_records::REGISTRATION.to_string());
+            // Whether a client is stored, from the vault's file names: no
             // Keychain read, since a records store runs `info` unattended.
-            v["clients"] = modmed::credentials::clients_stored(&ctx.vault);
-            v["registration"] = modmed::registration::DOC.into();
-            output::json(&v);
+            let client = modmed::registration::client_status(|e| {
+                modmed::credentials::client_stored(&ctx.vault, e)
+            });
+            output::json(&pk_med_smart::with_client(&info, &client)?);
             Ok(())
         }
     }

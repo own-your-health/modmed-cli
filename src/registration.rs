@@ -1,216 +1,165 @@
 //! What to enter on ModMed's FHIR vendor dashboard to register a household's
-//! own app (`modmed registration`, `registration/v1`), with the labels
-//! version 3.0.0 of the dashboard shows. docs/registration.md walks through
-//! the same steps; this is the copy a program can read.
+//! own app: `modmed registration` prints it (`registration/v1`,
+//! medical-common's `pk_med_smart::Registration`), with the labels version
+//! 3.0.0 of the dashboard shows. docs/registration.md walks through the same
+//! steps, sign-up included; `tests/registration.rs` holds the two together.
 
-use serde::Serialize;
+use pk_cli_core::CliError;
+use pk_med_smart::{missing_client, ClientStatus, ClientType, Registration, StoredIn};
 
-use crate::modmed::{CONTEXT_SCOPES, PATIENT_TYPES};
+use crate::modmed::{scopes, Environment};
 
-/// The vendor dashboard. It signs in through ModMed's Keycloak at
-/// `sso.ema.md` (realm `fhir-vendor`), whose page links "Register as New
-/// User".
+/// The vendor dashboard, the **Register** button on ModMed's guide. It signs
+/// in through ModMed's Keycloak at `sso.ema.md` (realm `fhir-vendor`), whose
+/// page links "Register as New User".
 pub const DASHBOARD: &str = "https://fhir-vendor-dashboard.kube.prod.mmicse.com";
-/// The step-by-step guide.
-pub const DOC: &str = "https://github.com/piekstra/modmed-cli/blob/main/docs/registration.md";
+/// The step-by-step guide, as `registration/v1` names it: its path in the
+/// repository.
+pub const DOC: &str = "docs/registration.md";
 /// The https page that passes a sign-in's answer on to modmed's listener
 /// (site/callback.html). The dashboard refuses an `http://127.0.0.1`
 /// redirect.
 pub const REDIRECT_PAGE: &str = "https://piekstra.github.io/modmed-cli/callback";
+/// The app is a confidential client: the secret goes in the token request's
+/// body (`client_secret_post`).
+pub const CLIENT_TYPE: ClientType = ClientType::ConfidentialSymmetric;
 const REPOSITORY: &str = "https://github.com/piekstra/modmed-cli";
 const PRIVACY: &str = "https://github.com/piekstra/modmed-cli/blob/main/PRIVACY.md";
 
-/// One field of a form: its label as the page shows it, what to enter, and
-/// why when it is not obvious.
-#[derive(Debug, Clone, Serialize, PartialEq)]
-pub struct Field {
-    pub label: &'static str,
-    pub value: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub note: Option<&'static str>,
-}
-
-/// One group of scope checkboxes on the app form, under its heading, with
-/// the boxes to check.
-#[derive(Debug, Clone, Serialize, PartialEq)]
-pub struct ScopeGroup {
-    pub heading: &'static str,
-    pub check: Vec<String>,
-    /// Boxes in the group to leave unchecked.
-    pub leave: Vec<&'static str>,
-}
-
-/// `registration/v1`'s payload.
-#[derive(Debug, Clone, Serialize)]
-pub struct Registration {
-    pub vendor: &'static str,
-    pub dashboard: &'static str,
-    pub doc: &'static str,
-    /// The "Register" page linked from the sign-in.
-    pub sign_up: Vec<Field>,
-    /// "Register New App", the "App Details" form.
-    pub app: Vec<Field>,
-    pub scopes: Vec<ScopeGroup>,
-    /// What to do after "Submit for Approval", in order.
-    pub then: Vec<String>,
-}
-
-fn field(label: &'static str, value: &str, note: Option<&'static str>) -> Field {
-    Field {
-        label,
-        value: value.to_string(),
-        note,
+/// The command that stores the pair the dashboard shows.
+fn store(environment: Environment) -> &'static str {
+    match environment {
+        Environment::Production => "modmed auth set-credential",
+        Environment::Test => "modmed auth set-credential --test",
     }
 }
 
-/// The values for an app whose redirect is `redirect` (the configured
-/// `redirect_page`, else [`REDIRECT_PAGE`]); `redirect_set` says whether
-/// modmed already sends it.
+/// The values for an app whose redirect is `redirect`: the configured
+/// `redirect_page`, else [`REDIRECT_PAGE`]. `redirect_set` says whether
+/// modmed already sends it, so the step that sets it is left out.
 pub fn registration(redirect: &str, redirect_set: bool) -> Registration {
-    let own = "Your own.";
-    let sign_up = vec![
-        field("First Name", own, None),
-        field("Last Name", own, None),
-        field(
-            "Email",
-            "Your own address.",
-            Some("The verification link it is sent expires within 5 minutes."),
-        ),
-        field(
-            "Company Name",
-            "Your own name.",
-            Some("A household registering its own app is not a company."),
-        ),
-        field("Web page", REPOSITORY, None),
-        field("Street", own, None),
-        field("City or Locality", own, None),
-        field("State, Province, or Region", own, None),
-        field("Zip or Postal code", own, None),
-        field("Country", own, None),
-        field("Phone number", "Optional; may be left empty.", None),
-        field(
-            "Description of Company or Applications",
-            "An individual using the open-source modmed command-line program to download my own records from my ModMed practice to my own computer.",
-            None,
-        ),
-        field("Password", "A new password, kept in your password manager.", None),
-        field("Confirm Password", "The same password.", None),
-    ];
-    let app = vec![
-        field(
-            "Application Name",
-            "modmed",
-            Some("Required. Any name your household recognises; the practice's consent page may show it."),
-        ),
-        field(
-            "Description",
-            "Downloads the patient's own records to their own computer. Reads only.",
-            Some("Optional."),
-        ),
-        field("App Type", "Patient", None),
-        field("FHIR Version", "v4.0.1", Some("Shown, not chosen.")),
-        field(
-            "Access Type",
-            "Client-Confidential",
-            Some("modmed sends the client secret in the token request's body."),
-        ),
-        field("PKCE", "Use PKCE S256", None),
-        field(
-            "Launch URL",
-            REPOSITORY,
-            Some("Required once launch/patient is checked; any https address of the app."),
-        ),
-        field(
-            "Redirect URL",
-            redirect,
-            Some("One per app. The dashboard refuses http://127.0.0.1:7470/callback (a 400), so this https page passes the answer on to it."),
-        ),
-        field("Logo URL", "", Some("Optional; leave empty.")),
-        field("Policy URL", PRIVACY, None),
-        field("Terms of Service URL", "", Some("Optional; leave empty.")),
-    ];
-    let pick = |names: &[&str]| -> Vec<String> {
-        CONTEXT_SCOPES
-            .iter()
-            .filter(|s| names.contains(s))
-            .map(|s| s.to_string())
-            .collect()
-    };
-    let scopes = vec![
-        ScopeGroup {
-            heading: "Standard Scopes",
-            check: pick(&["openid", "launch/patient"]),
-            leave: vec!["online_access", "launch", "launch/encounter"],
-        },
-        ScopeGroup {
-            heading: "Additional Scopes: Patient Scopes",
-            check: PATIENT_TYPES
-                .iter()
-                .map(|t| format!("patient/{t}.rs"))
-                .collect(),
-            leave: vec![],
-        },
-        ScopeGroup {
-            heading: "Additional Scopes: User Scopes",
-            check: vec![],
-            leave: vec!["every user/*.rs"],
-        },
-        ScopeGroup {
-            heading: "Standard Scopes (the second group)",
-            check: pick(&["fhirUser", "offline_access"]),
-            leave: vec!["profile"],
-        },
-    ];
-    let mut then = vec![
-        "Choose \"Submit for Approval\". The app's row reads Status \"Disabled\".".to_string(),
-        "Choose its action \"Request to Enable App\", then \"Proceed\". The row reads \"Pending for Approval\" until ModMed approves it.".to_string(),
-    ];
-    then.push(
-        "Store the Client ID and Secret the row shows: `modmed auth set-credential` (asks for each without echoing it), or `--stdin` with `<id>:<secret>` or the two on separate lines.".to_string(),
-    );
+    let mut reg = Registration::new(
+        "modmed",
+        "ModMed",
+        DASHBOARD,
+        DOC,
+        CLIENT_TYPE,
+        store(Environment::Production),
+    )
+    .redirect_uri(redirect)
+    .scopes(&scopes())
+    .field_with_note(
+        "Application Name",
+        "modmed",
+        "required; any name your household recognises, which the practice's sign-in may show",
+    )
+    .field_with_note(
+        "Description",
+        "Downloads the patient's own records to their own computer. Reads only.",
+        "optional",
+    )
+    .field("App Type", "Patient")
+    .field_with_note("FHIR Version", "v4.0.1", "shown, not chosen")
+    .field("Access Type", "Client-Confidential")
+    .field("PKCE", "Use PKCE S256")
+    .url("Launch URL", REPOSITORY)
+    .url("Redirect URL", redirect)
+    .url("Logo URL", "")
+    .url("Policy URL", PRIVACY)
+    .url("Terms of Service URL", "");
+    for note in [
+        "Sign up first: \"Register as New User\" on the dashboard's sign-in page. The verification link it emails expires within 5 minutes.",
+        "The Launch URL is required once a launch scope is checked (\"Base (Launch) Url must be a valid url if a launch scope is present.\"); modmed never opens it. Logo URL and Terms of Service URL stay empty.",
+        "The form takes one Redirect URL and refuses http://127.0.0.1:7470/callback (a 400), so the app registers an https page that passes the sign-in's answer on to modmed at that address.",
+        "The scopes are checkboxes. Under the first Standard Scopes check openid and launch/patient; under Additional Scopes, all 27 Patient Scopes and none of the User Scopes; under the second Standard Scopes, fhirUser and offline_access.",
+        "After \"Submit for Approval\" the app is Disabled: choose \"Request to Enable App\", then \"Proceed\". It reads \"Pending for Approval\" until ModMed approves it; ModMed publishes no review time.",
+    ] {
+        reg = reg.note(note);
+    }
     if !redirect_set {
-        then.push(format!(
-            "Point modmed at the redirect page: `modmed config set redirect_page {redirect}`"
+        reg = reg.note(format!(
+            "Point modmed at the page: `modmed config set redirect_page {redirect}`."
         ));
     }
-    Registration {
-        vendor: "modmed",
-        dashboard: DASHBOARD,
-        doc: DOC,
-        sign_up,
-        app,
-        scopes,
-        then,
-    }
+    reg
+}
+
+/// The error for an environment with no client stored: exit 2, reason
+/// `no-client`, its remedy naming the guide, `modmed registration` and the
+/// store command.
+pub fn no_client(environment: Environment) -> CliError {
+    let mut reg = registration(REDIRECT_PAGE, true);
+    reg.store = store(environment).into();
+    missing_client(&reg, Some(environment.as_str()))
+}
+
+/// `info`'s and `auth status`'s `client` member: the production client when
+/// it is stored, else the test one, else none.
+pub fn client_status(stored: impl Fn(Environment) -> bool) -> ClientStatus {
+    Environment::ALL
+        .into_iter()
+        .find(|e| stored(*e))
+        .map(|e| ClientStatus::configured(CLIENT_TYPE, StoredIn::Vault).registration(e.as_str()))
+        .unwrap_or_else(ClientStatus::none)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::BTreeSet;
 
     #[test]
-    fn the_boxes_to_check_are_exactly_the_scopes_a_sign_in_asks_for() {
-        let r = registration(REDIRECT_PAGE, false);
-        let checked: BTreeSet<String> = r.scopes.iter().flat_map(|g| g.check.clone()).collect();
-        let asked: BTreeSet<String> = crate::modmed::scope()
+    fn the_scopes_listed_are_the_ones_a_sign_in_asks_for() {
+        let mut listed = registration(REDIRECT_PAGE, false).scopes;
+        let mut asked: Vec<String> = crate::modmed::scope()
             .split_whitespace()
             .map(str::to_string)
             .collect();
-        assert_eq!(checked, asked);
-        assert_eq!(checked.len(), 31);
+        listed.sort();
+        asked.sort();
+        assert_eq!(listed, asked);
+        assert_eq!(listed.len(), 31);
     }
 
     #[test]
-    fn the_redirect_is_the_page_and_its_setting_is_named_until_set() {
-        let r = registration(REDIRECT_PAGE, false);
-        let redirect = r.app.iter().find(|f| f.label == "Redirect URL").unwrap();
-        assert_eq!(redirect.value, REDIRECT_PAGE);
-        assert!(r.then.iter().any(|s| s.ends_with(&format!(
-            "`modmed config set redirect_page {REDIRECT_PAGE}`"
+    fn the_redirect_is_the_configured_page_and_its_setting_is_named_until_set() {
+        let reg = registration(REDIRECT_PAGE, false);
+        assert_eq!(reg.redirect_uris, [REDIRECT_PAGE]);
+        assert!(reg.notes.iter().any(|n| n.ends_with(&format!(
+            "`modmed config set redirect_page {REDIRECT_PAGE}`."
         ))));
-        let set = registration(REDIRECT_PAGE, true);
-        assert!(!set.then.iter().any(|s| s.contains("config set")));
+        let own = registration("https://cb.example/modmed/callback", true);
+        assert_eq!(own.redirect_uris, ["https://cb.example/modmed/callback"]);
+        let redirect = own.urls.iter().find(|u| u.label == "Redirect URL").unwrap();
+        assert_eq!(redirect.value, "https://cb.example/modmed/callback");
+        assert!(!own.notes.iter().any(|n| n.contains("config set")));
+    }
+
+    #[test]
+    fn a_missing_client_names_the_guide_the_command_and_the_store() {
+        let err = no_client(Environment::Production);
+        assert_eq!(err.exit_code(), 2);
+        assert_eq!(
+            err.remedy(),
+            Some("register one as docs/registration.md describes, entering what `modmed registration` prints, then run `modmed auth set-credential`")
+        );
+        assert!(err.to_string().contains("for the production registration"));
+        let test = no_client(Environment::Test);
+        assert!(test
+            .remedy()
+            .unwrap()
+            .ends_with("then run `modmed auth set-credential --test`"));
+    }
+
+    #[test]
+    fn the_status_is_the_production_client_first() {
+        assert!(!client_status(|_| false).configured);
+        let test = client_status(|e| e == Environment::Test);
+        assert_eq!(test.registration.as_deref(), Some("test"));
+        let both = client_status(|_| true);
+        assert_eq!(both.registration.as_deref(), Some("production"));
+        assert_eq!(both.client_type, Some(CLIENT_TYPE));
+        assert_eq!(both.stored_in, Some(StoredIn::Vault));
+        assert_eq!(both.client_id, None);
     }
 
     #[test]
@@ -218,10 +167,7 @@ mod tests {
         let site =
             std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/site/callback.html"))
                 .unwrap();
-        let path = REDIRECT_PAGE
-            .strip_prefix("https://piekstra.github.io/modmed-cli/")
-            .unwrap();
-        assert_eq!(path, "callback");
+        assert!(REDIRECT_PAGE.starts_with("https://piekstra.github.io/modmed-cli/"));
         assert!(site.contains("http://127.0.0.1:7470/callback"));
     }
 }

@@ -75,7 +75,7 @@ impl ClientCredentials {
 }
 
 /// Whether the vault holds `environment`'s client, from its file alone: no
-/// Keychain read, so `info` and `registration` can say it with no dialog.
+/// Keychain read, so `info` can say it with no dialog.
 /// The file's name is the vault's own (`pk-cli-vault/1`), which
 /// `a_stored_client_is_seen_without_the_key` pins.
 pub fn client_stored(vault: &Vault, environment: Environment) -> bool {
@@ -86,22 +86,6 @@ pub fn client_stored(vault: &Vault, environment: Environment) -> bool {
         .finalize();
     let name: String = digest.iter().map(|b| format!("{b:02x}")).collect();
     vault.dir().join(format!("{name}.pkv")).is_file()
-}
-
-/// Each environment and whether its client is stored, as `info` and
-/// `registration` show it.
-pub fn clients_stored(vault: &Vault) -> serde_json::Value {
-    serde_json::Value::Array(
-        Environment::ALL
-            .iter()
-            .map(|e| {
-                serde_json::json!({
-                    "environment": e.as_str(),
-                    "stored": client_stored(vault, *e),
-                })
-            })
-            .collect(),
-    )
 }
 
 pub fn read_client(
@@ -139,13 +123,6 @@ mod tests {
         assert!(client_stored(&vault, Environment::Test));
         assert!(!client_stored(&vault, Environment::Production));
         assert_eq!(keys.reads(), reads, "the check read the key");
-        assert_eq!(
-            clients_stored(&vault),
-            serde_json::json!([
-                {"environment": "production", "stored": false},
-                {"environment": "test", "stored": true},
-            ])
-        );
     }
 
     #[test]

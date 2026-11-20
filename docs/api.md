@@ -249,3 +249,7 @@ Traps:
   parameter for.
 - A refused or missing refresh token is exit 3; the patient signs in again
   at the practice.
+- No client stored for the environment a practice needs is exit 2 with the
+  reason `no-client` (medical-common's `missing_client`), before any
+  request; the remedy names docs/registration.md, `modmed registration`
+  and `modmed auth set-credential`.
