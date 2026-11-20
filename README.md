@@ -42,13 +42,18 @@ own:
 1. Sign up on ModMed's FHIR vendor dashboard (linked from
    [portal.api.modmed.com](https://portal.api.modmed.com)) and accept the
    Certified API Terms of Use. ModMed reviews the registration.
-2. Configure one app: a patient app, standalone launch, the scopes
+2. Configure one app: a patient app, confidential, with PKCE, the scopes
    `openid fhirUser launch/patient offline_access` and `patient/<Type>.rs`
-   for the types it reads, and the redirect URI
-   `http://127.0.0.1:7470/callback`. If ModMed takes only https, register
+   for the 27 types offered, and the redirect URL
    `https://piekstra.github.io/modmed-cli/callback`, a page that passes the
-   answer on to that address, and run `modmed config set redirect_page
-   https://piekstra.github.io/modmed-cli/callback`.
+   answer on to modmed at `http://127.0.0.1:7470/callback` (the dashboard
+   refuses that address itself). Then request that ModMed enable the app,
+   and point modmed at the page:
+
+```sh
+modmed config set redirect_page https://piekstra.github.io/modmed-cli/callback
+```
+
 3. Store the client id and secret in modmed's vault (one for every profile
    and practice):
 
