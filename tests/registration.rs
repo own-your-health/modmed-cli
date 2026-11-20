@@ -4,8 +4,10 @@
 
 use std::collections::BTreeSet;
 
+use modmed::config::Config;
+use modmed::modmed::Environment;
 use modmed::modmed::{CONTEXT_SCOPES, PATIENT_TYPES};
-use modmed::registration::{registration, REDIRECT_PAGE};
+use modmed::registration::registration;
 
 fn doc() -> String {
     std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/docs/registration.md")).unwrap()
@@ -14,7 +16,7 @@ fn doc() -> String {
 #[test]
 fn the_doc_gives_every_app_field_the_command_s_value() {
     let doc = doc();
-    let reg = registration(REDIRECT_PAGE, false);
+    let reg = registration(Environment::Production, &Config::default());
     for f in reg.fields.iter().chain(&reg.urls) {
         let row = doc
             .lines()
@@ -45,7 +47,7 @@ fn the_doc_s_boxes_are_the_command_s_scopes() {
             checked.extend(check.split('`').skip(1).step_by(2).map(str::to_string));
         }
     }
-    let reg: BTreeSet<String> = registration(REDIRECT_PAGE, false)
+    let reg: BTreeSet<String> = registration(Environment::Production, &Config::default())
         .scopes
         .into_iter()
         .collect();

@@ -38,7 +38,7 @@ fn run(cli: &Cli) -> Result<(), CliError> {
         Command::Documents(cmd) => commands::documents::run(&ctx, cmd),
         Command::Api(args) => commands::api::run(&ctx, args),
         Command::Config(cmd) => commands::config::run(&ctx, cmd),
-        Command::Registration => commands::registration::run(&ctx),
+        Command::Registration { test } => commands::registration::run(&ctx, *test),
         Command::SelfUpdate(args) => Updater {
             repo: REPO.into(),
             binary: BIN.into(),
@@ -67,7 +67,7 @@ fn run(cli: &Cli) -> Result<(), CliError> {
                     required: true,
                     method: "browser-session".into(),
                     login_hint: Some(format!(
-                        "{BIN} registration (an app of your own, {}), {BIN} auth set-credential, {BIN} profiles add <NAME>, {BIN} orgs search <WORDS>, then {BIN} auth login --profile <NAME> --org <ORG> --label <WHO>",
+                        "{BIN} registration (an app of your own: {}), {BIN} auth set-credential, {BIN} profiles add <NAME>, {BIN} orgs search <WORDS>, then {BIN} auth login --profile <NAME> --org <ORG> --label <WHO>",
                         modmed::registration::DOC
                     )),
                 },
@@ -89,12 +89,13 @@ fn run(cli: &Cli) -> Result<(), CliError> {
                 .push(pk_med_records::LOGIN_PROFILES.to_string());
             info.capabilities
                 .push(pk_med_records::REGISTRATION.to_string());
-            // Whether a client is stored, from the vault's file names: no
+            // Which clients are stored, from the vault's file names: no
             // Keychain read, since a records store runs `info` unattended.
-            let client = modmed::registration::client_status(|e| {
-                modmed::credentials::client_stored(&ctx.vault, e)
-            });
-            output::json(&pk_med_smart::with_client(&info, &client)?);
+            // The config only names the test server and the redirect, so a
+            // config that does not load leaves `info` working.
+            let config = ctx.config().unwrap_or_default();
+            let clients = modmed::registration::client_statuses(&ctx.vault, &config)?;
+            output::json(&pk_med_smart::with_clients(&info, &clients)?);
             Ok(())
         }
     }

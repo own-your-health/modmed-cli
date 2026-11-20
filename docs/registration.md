@@ -9,7 +9,7 @@ forms take about 15 minutes. ModMed then reviews the app before it can sign
 anyone in.
 
 `modmed registration` prints the app form's values below (`--json`:
-`registration/v1`), with the redirect from your own config. It reads no
+`registration/v2`), with the redirect from your own config. It reads no
 secret and makes no request.
 
 The labels are the ones version 3.0.0 of the dashboard shows. ModMed's own
@@ -126,11 +126,12 @@ modmed at the redirect page you registered:
 modmed config set redirect_page https://piekstra.github.io/modmed-cli/callback
 ```
 
-`modmed info` now reports the client as configured (`"client":
-{"configured": true, "registration": "production", ...}`), and `modmed auth
-status --profile <NAME>` shows "client: confidential (secret), in vault
-(production)". `modmed auth set-credential --overwrite` replaces a
-pair, for example after ModMed issues a new secret.
+`modmed info --json` now lists the production client as configured
+(`"clients": [{"registration": "production", "configured": true, ...},
+...]`), and `modmed auth status --profile <NAME>` shows "client
+(production): confidential (secret), in vault". Neither shows the id.
+`modmed auth set-credential --overwrite` replaces a pair, for example
+after ModMed issues a new secret.
 
 ## 5. What the dashboard refuses
 

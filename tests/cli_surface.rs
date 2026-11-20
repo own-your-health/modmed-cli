@@ -156,7 +156,13 @@ fn info_is_cli_info() {
     assert!(!v.to_string().contains("mcp"));
     // Whether a client is stored, read with no Keychain item, and the
     // registration command.
-    assert_eq!(v["client"], json!({"configured": false}));
+    assert_eq!(
+        v["clients"],
+        json!([
+            {"registration": "production", "configured": false},
+            {"registration": "test", "configured": false},
+        ])
+    );
     assert!(v["capabilities"]
         .as_array()
         .unwrap()
@@ -164,7 +170,10 @@ fn info_is_cli_info() {
     assert!(v["auth"]["login_hint"]
         .as_str()
         .unwrap()
-        .starts_with("modmed registration (an app of your own, docs/registration.md)"));
+        .starts_with(&format!(
+            "modmed registration (an app of your own: {})",
+            "https://github.com/piekstra/modmed-cli/blob/main/docs/registration.md"
+        )));
 }
 
 /// The vault file `pk-cli-vault/1` keeps an entry in, as the vault names it.
@@ -184,14 +193,19 @@ fn plant_vault_entry(home: &std::path::Path, entry: &str) {
 fn registration_prints_the_form_s_values() {
     let home = tmp();
     let v = stdout_json(modmed(&home).args(["registration", "--json"]));
-    assert_eq!(v["schema"], "registration/v1");
+    assert_eq!(v["schema"], "registration/v2");
+    assert_eq!(v["registration"], "production");
+    assert_eq!(v["command"], "modmed registration");
     assert_eq!(v["cli"], "modmed");
     assert_eq!(v["vendor"], "ModMed");
     assert_eq!(
         v["portal"],
         "https://fhir-vendor-dashboard.kube.prod.mmicse.com"
     );
-    assert_eq!(v["doc"], "docs/registration.md");
+    assert_eq!(
+        v["doc"],
+        "https://github.com/piekstra/modmed-cli/blob/main/docs/registration.md"
+    );
     assert_eq!(v["launch"], "standalone-patient");
     assert_eq!(v["client_type"], "confidential-symmetric");
     assert_eq!(v["pkce"], "S256");
@@ -251,7 +265,7 @@ fn registration_prints_the_form_s_values() {
     let text = modmed(&home).arg("registration").assert().success();
     let text = String::from_utf8_lossy(&text.get_output().stdout).to_string();
     assert!(text.starts_with(
-        "Register modmed with ModMed: https://fhir-vendor-dashboard.kube.prod.mmicse.com\n"
+        "Register modmed with ModMed (production): https://fhir-vendor-dashboard.kube.prod.mmicse.com\nStep by step: https://github.com/piekstra/modmed-cli/blob/main/docs/registration.md\n"
     ));
     for needle in [
         "https://cb.example/modmed/callback",
@@ -270,12 +284,45 @@ fn info_sees_a_stored_client_without_reading_it() {
     plant_vault_entry(&home, "_client/test");
     let v = stdout_json(modmed(&home).arg("info"));
     assert_eq!(
-        v["client"],
-        json!({"configured": true, "registration": "test", "client_type": "confidential-symmetric", "stored_in": "vault"})
+        v["clients"],
+        json!([
+            {"registration": "production", "configured": false},
+            {"registration": "test", "configured": true, "client_type": "confidential-symmetric", "stored_in": "vault"},
+        ])
     );
     plant_vault_entry(&home, "_client/production");
     let v = stdout_json(modmed(&home).arg("info"));
-    assert_eq!(v["client"]["registration"], "production");
+    assert_eq!(v["clients"][0]["configured"], true);
+}
+
+#[test]
+fn info_answers_with_a_config_that_does_not_load() {
+    let home = tmp();
+    std::fs::write(home.join("config/modmed/config.json"), "{ not json").unwrap();
+    let v = stdout_json(modmed(&home).arg("info"));
+    assert_eq!(v["clients"].as_array().unwrap().len(), 2);
+}
+
+#[test]
+fn registration_test_prints_the_test_server_s() {
+    let home = tmp();
+    // Before a server is configured, the portal is empty, not a placeholder.
+    let v = stdout_json(modmed(&home).args(["registration", "--test", "--json"]));
+    assert_eq!(v["portal"], "");
+    assert_eq!(v["vendor"], "ModMed");
+    modmed(&home)
+        .args(["config", "set", "test_fhir_base", "http://127.0.0.1:9/fhir"])
+        .assert()
+        .success();
+    let v = stdout_json(modmed(&home).args(["registration", "--test", "--json"]));
+    assert_eq!(v["registration"], "test");
+    assert_eq!(v["command"], "modmed registration --test");
+    assert_eq!(v["portal"], "http://127.0.0.1:9/fhir");
+    assert_eq!(v["store"], "modmed auth set-credential --test");
+    assert_eq!(
+        v["redirect_uris"],
+        json!(["http://127.0.0.1:7470/callback"])
+    );
 }
 
 #[test]
@@ -467,7 +514,13 @@ fn nothing_stored_reads_as_such_without_the_keychain() {
     assert_eq!(v["method"], "browser-session");
     assert_eq!(v["credential_in_keychain"], false);
     assert_eq!(v["profile"], "adult1");
-    assert_eq!(v["clients"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        v["clients"],
+        json!([
+            {"registration": "production", "configured": false},
+            {"registration": "test", "configured": false},
+        ])
+    );
     assert_eq!(v["patients"], json!([]));
     // MODMED_PROFILE stands in for --profile.
     modmed(&home)
@@ -475,7 +528,12 @@ fn nothing_stored_reads_as_such_without_the_keychain() {
         .args(["auth", "status"])
         .assert()
         .success()
-        .stdout(predicate::str::contains("not stored"));
+        .stdout(predicate::str::contains(
+            "client (production): none configured; see https://github.com/piekstra/modmed-cli/blob/main/docs/registration.md and `modmed registration`",
+        ))
+        .stdout(predicate::str::contains(
+            "client (test): none configured; see https://github.com/piekstra/modmed-cli/blob/main/CONTRIBUTING.md and `modmed registration --test`",
+        ));
     let v = stdout_json(modmed(&home).args(["auth", "logout", "--profile", "adult1", "--json"]));
     assert_eq!(
         v,

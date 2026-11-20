@@ -62,9 +62,12 @@ pub enum Command {
     #[command(subcommand)]
     Config(ConfigCmd),
     /// What to enter on ModMed's vendor dashboard to register your own app
-    /// (registration/v1), and whether its client is stored. Step by step:
-    /// docs/registration.md.
-    Registration,
+    /// (registration/v2). Step by step: docs/registration.md.
+    Registration {
+        /// A test server's registration instead (`make mock`).
+        #[arg(long)]
+        test: bool,
+    },
     /// Update to the latest release from GitHub.
     SelfUpdate(SelfUpdateArgs),
     /// Print a shell completion script.
@@ -86,7 +89,7 @@ impl Command {
             Command::Orgs(_)
             | Command::Profiles(_)
             | Command::Config(_)
-            | Command::Registration
+            | Command::Registration { .. }
             | Command::SelfUpdate(_)
             | Command::Completions { .. }
             | Command::Info => false,

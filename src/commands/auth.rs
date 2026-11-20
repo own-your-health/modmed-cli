@@ -325,26 +325,17 @@ fn verify(t: &pk_cli_http::BlockingTransport, session: &SmartSession, patient: &
         .is_ok()
 }
 
-/// `auth-status/v1` with `profile`, `clients` and `patients` rows. An entry
-/// that cannot be read is its row's `error`, not the command's failure.
+/// `auth-status/v1` with `profile`, medical-common's `clients` (one row per
+/// registration, from the vault's file names; a vault directory that
+/// cannot be read fails the command) and `patients` rows. A sign-in that
+/// cannot be read is its patient row's `error`, not the command's failure.
 pub fn status_of(ctx: &Ctx) -> Result<(AuthStatus, Value), CliError> {
     let config = ctx.config()?;
     let profile = ctx.profile(&config)?;
     let settings = ctx.settings(&config, &profile)?;
     let sessions = ctx.sessions(&profile);
-    let mut clients = Vec::new();
-    let mut any_client = false;
-    for environment in Environment::ALL {
-        // The vault reads its key only when the entry exists, so a
-        // logged-out status raises no prompt.
-        let mut row = json!({ "environment": environment.as_str(), "stored": false });
-        match credentials::read_client(&ctx.vault, environment) {
-            Ok(found) => row["stored"] = found.is_some().into(),
-            Err(e) => row["error"] = e.message().into(),
-        }
-        any_client |= row["stored"] == true;
-        clients.push(row);
-    }
+    let clients = crate::registration::client_statuses(&ctx.vault, &config)?;
+    let any_client = clients.iter().any(|c| c.configured);
     let mut rows = Vec::new();
     let mut any_stored = false;
     let mut any_usable = false;
@@ -379,20 +370,13 @@ pub fn status_of(ctx: &Ctx) -> Result<(AuthStatus, Value), CliError> {
     status.session_valid = Some(any_usable);
     let mut v = status.to_json();
     v["profile"] = profile.as_str().into();
-    let client = crate::registration::client_status(|e| {
-        clients
-            .iter()
-            .any(|c| c["environment"] == e.as_str() && c["stored"] == true)
-    });
-    v["clients"] = Value::Array(clients);
     v["patients"] = Value::Array(rows);
-    let v = pk_med_smart::with_client(&v, &client)?;
+    let v = pk_med_smart::with_clients(&v, &clients)?;
     Ok((status, v))
 }
 
 fn status(ctx: &Ctx) -> Result<(), CliError> {
     let (status, v) = status_of(ctx)?;
-    let clients = v["clients"].as_array().cloned().unwrap_or_default();
     let rows = v["patients"].as_array().cloned().unwrap_or_default();
     if ctx.json() {
         output::json(&v);
@@ -402,30 +386,11 @@ fn status(ctx: &Ctx) -> Result<(), CliError> {
             v["profile"].as_str().unwrap_or_default()
         );
         status.render();
-        let client: pk_med_smart::ClientStatus =
-            serde_json::from_value(v["client"].clone()).unwrap_or_default();
-        println!(
-            "{}",
-            client.text(&crate::registration::registration(
-                crate::registration::REDIRECT_PAGE,
-                true
-            ))
-        );
-        for c in &clients {
-            println!(
-                "Client ({}): {}",
-                c["environment"].as_str().unwrap_or_default(),
-                if c["stored"] == true {
-                    "stored".to_string()
-                } else if let Some(e) = c["error"].as_str() {
-                    format!("unreadable ({e})")
-                } else if c["environment"] == "test" {
-                    "not stored (`modmed auth set-credential --test`, test servers only)"
-                        .to_string()
-                } else {
-                    "not stored (`modmed auth set-credential`; to register an app, `modmed registration`)".to_string()
-                }
-            );
+        let config = ctx.config()?;
+        let statuses = crate::registration::client_statuses(&ctx.vault, &config)?;
+        for (environment, status) in Environment::ALL.into_iter().zip(&statuses) {
+            let reg = crate::registration::registration(environment, &config);
+            println!("{}", status.text(&reg));
         }
         if rows.is_empty() {
             println!(
