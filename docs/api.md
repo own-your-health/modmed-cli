@@ -107,6 +107,35 @@ The endpoints:
 only on https hosts under `fhir.ema-api.com` or `sso.ema.md`, so the client
 secret goes nowhere else (`modmed::require`).
 
+### What the sign-in refuses before any page
+
+A practice's sign-in is Keycloak (realm `fhir`). It refuses some
+authorization requests itself, with an error page carrying the message in
+`<div id="kc-error-message"><p class="instruction">`, an empty `<title>`,
+and no redirect back. A browser left on that page never reaches modmed's
+listener, so the sign-in would wait out its whole timeout. A practice's
+sign-in answered as follows (captured at a sandbox practice; the pages,
+trimmed, are `tests/fixtures/sign-in/`):
+
+| Request | Answer |
+|---|---|
+| A client id the sign-in does not know (a made-up one) | 400 "Client not found." |
+| A known client with a `redirect_uri` it does not register | 400 "Invalid parameter: redirect_uri" |
+| A bearer-only client | 403 "Bearer-only applications are not allowed to initiate browser login" |
+
+An app still "Pending for Approval" is expected to answer "Client not
+found." as well: a sign-in with one ended in the timeout, Chrome on a page
+with an empty title. Keycloak's message for a client that exists but is
+disabled is "Client disabled."; no ModMed answer with it has been seen.
+
+`modmed auth login` therefore sends the authorization request once itself,
+before Chrome opens (`modmed::refusal`). A 4xx with such a message fails
+at once with exit 3 and reason `client_not_found`, `client_disabled`,
+`redirect_refused` or `sign_in_refused` (any other message, quoted with the
+client id left out). Anything else (the sign-in page, a redirect, a 5xx, no
+answer) goes on to the browser. The request carries the client id, so
+modmed never prints it.
+
 ### Scopes
 
 ModMed's table, Standalone (patient picker): required "openid,
@@ -249,6 +278,12 @@ Traps:
   parameter for.
 - A refused or missing refresh token is exit 3; the patient signs in again
   at the practice.
+- A sign-in the practice refuses before any page (an unknown client, a
+  redirect it does not register) is exit 3 before Chrome opens, with the
+  reasons under [What the sign-in refuses before any
+  page](#what-the-sign-in-refuses-before-any-page). A sign-in that gets no
+  answer within `--timeout` is exit 3 with `auth login`'s command as the
+  remedy.
 - No client stored for the environment a practice needs is exit 2 with the
   reason `no_client` (medical-common's `missing_client`), before any
   request. The remedy names the guide's URL, `modmed registration` and

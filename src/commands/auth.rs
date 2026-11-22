@@ -5,7 +5,8 @@ use std::time::Duration;
 
 use pk_cli_auth::oauth::OAuthClient;
 use pk_cli_auth::{AuthLogin, AuthMethod, AuthStatus};
-use pk_cli_core::{block_on, output, CliError};
+use pk_cli_core::transport::{HttpRequest, Transport};
+use pk_cli_core::{block_on, output, CliError, Reason};
 use pk_cli_secrets::Secret;
 use pk_med_fhir::FhirClient;
 use pk_med_smart::{begin, discover, LaunchRequest, SessionStore, SmartApp, SmartSession};
@@ -13,9 +14,11 @@ use serde_json::{json, Value};
 
 use super::{rfc3339, transport, Ctx, BIN};
 use crate::cli::{AuthCmd, LoginArgs, LogoutArgs, SetCredentialArgs, LOGIN_TIMEOUT};
+use crate::config::Config;
 use crate::credentials::{self, client_entry, ClientCredentials};
-use crate::modmed::{self, Address, Environment, ModMedQuirks};
+use crate::modmed::{self, Address, Environment, ModMedQuirks, Refusal};
 use crate::orgs::Org;
+use crate::registration::{DASHBOARD, REDIRECT_PAGE};
 use crate::session::{client_auth, now, Context};
 
 pub fn run(ctx: &Ctx, cmd: &AuthCmd) -> Result<(), CliError> {
@@ -214,6 +217,10 @@ fn login(ctx: &Ctx, args: &LoginArgs) -> Result<(), CliError> {
             quirks: &ModMedQuirks,
         },
     )?;
+    let again = login_again(&profile, &org, args);
+    if let Some(e) = refused(&t, pending.url(), &org, &config, &client, &again) {
+        return Err(e);
+    }
     // Chrome in the profile's own browser profile, so one portal account's
     // cookies never sign in another. The authorize step is the practice's
     // own sign-in, so no page opens before it.
@@ -245,7 +252,6 @@ fn login(ctx: &Ctx, args: &LoginArgs) -> Result<(), CliError> {
         ));
         eprintln!("{}", pending.url());
     }
-    let again = login_again(&profile, &org, args);
     let code = pending
         .wait_for_code(Duration::from_secs(args.timeout * 60), |reason| {
             ctx.note(format!(
@@ -314,6 +320,61 @@ fn login(ctx: &Ctx, args: &LoginArgs) -> Result<(), CliError> {
         )
     });
     Ok(())
+}
+
+/// The practice's sign-in asked once, before any window opens, whether it
+/// refuses the request itself ([`modmed::refusal`]): an app ModMed has not
+/// approved, or a redirect that is not the app's, would otherwise leave
+/// Chrome on an error page for the whole timeout. An answer that is no
+/// refusal, or none at all, leaves it to the browser. The address carries
+/// the client id, so it is never printed here.
+fn refused(
+    t: &pk_cli_http::BlockingTransport,
+    url: &str,
+    org: &Org,
+    config: &Config,
+    client: &ClientCredentials,
+    again: &str,
+) -> Option<CliError> {
+    let request = HttpRequest::get(url).user_agent(BIN, env!("CARGO_PKG_VERSION"));
+    let answer = block_on(t.send(request)).ok()?;
+    let refusal = modmed::refusal(answer.status, &answer.body)?;
+    let name = &org.name;
+    let approved = format!(
+        "ModMed's dashboard ({DASHBOARD}) lists the app as \"Pending for Approval\" until ModMed approves it"
+    );
+    let error = match &refusal {
+        Refusal::ClientNotFound => CliError::Auth(format!(
+            "{name}'s sign-in knows no client with the stored client id (\"Client not found.\"), so it shows no sign-in page"
+        ))
+        .with_remedy(format!(
+            "{approved}; once it has, {again}. If it already has, store the app's client id and secret again with `{BIN} auth set-credential`"
+        )),
+        Refusal::ClientDisabled => CliError::Auth(format!(
+            "{name}'s sign-in has the app disabled (\"Client disabled.\")"
+        ))
+        .with_remedy(format!("{approved}; once it has, {again}")),
+        Refusal::RedirectUri => {
+            let sent = config.redirect_uri();
+            CliError::Auth(format!(
+                "{name}'s sign-in refused the redirect address {sent} (\"Invalid parameter: redirect_uri\"): it is not the app's Redirect URL"
+            ))
+            .with_remedy(match &config.redirect_page {
+                None => format!(
+                    "point modmed at the page the app registers with `{BIN} config set redirect_page {REDIRECT_PAGE}`, then {again}"
+                ),
+                Some(_) => format!(
+                    "set it to the app's Redirect URL on ModMed's dashboard with `{BIN} config set redirect_page <URL>`, then {again}"
+                ),
+            })
+        }
+        Refusal::Other(message) => CliError::Auth(format!(
+            "{name}'s sign-in refused the request before any sign-in page: \"{}\"",
+            message.replace(client.client_id.as_str(), "<client id>")
+        ))
+        .with_remedy(again),
+    };
+    Some(error.because(Reason::Provider(refusal.slug())))
 }
 
 /// One read of the patient's own Patient record, kept nowhere: whether the

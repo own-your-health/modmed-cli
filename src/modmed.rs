@@ -200,6 +200,81 @@ pub struct ModMedQuirks;
 
 impl VendorQuirks for ModMedQuirks {}
 
+/// A practice's sign-in refusing the authorization request itself, before
+/// any page a person signs in on. Its Keycloak answers with an error page
+/// (`<div id="kc-error-message"><p class="instruction">…</p>`) and never
+/// redirects back, so a browser left on it waits out the whole timeout.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Refusal {
+    /// "Client not found.": the sign-in has no client with the id sent. A
+    /// made-up id answers so; an app ModMed has not approved is expected to.
+    ClientNotFound,
+    /// "Client disabled.": Keycloak's message for a client that exists and
+    /// is disabled; not yet seen at ModMed.
+    ClientDisabled,
+    /// "Invalid parameter: redirect_uri": the redirect is not the app's
+    /// Redirect URL.
+    RedirectUri,
+    /// Any other message, as the page gives it.
+    Other(String),
+}
+
+impl Refusal {
+    /// `error.reason` in `--json`.
+    pub fn slug(&self) -> &'static str {
+        match self {
+            Refusal::ClientNotFound => "client_not_found",
+            Refusal::ClientDisabled => "client_disabled",
+            Refusal::RedirectUri => "redirect_refused",
+            Refusal::Other(_) => "sign_in_refused",
+        }
+    }
+}
+
+/// The refusal in an answer to the authorization request: a 4xx carrying
+/// Keycloak's error message. Anything else (the sign-in page, a redirect,
+/// a 5xx that a reload may get past) is for the browser.
+pub fn refusal(status: u16, body: &str) -> Option<Refusal> {
+    if !(400..500).contains(&status) {
+        return None;
+    }
+    let div = &body[body.find("id=\"kc-error-message\"")?..];
+    let div = &div[..div.find("</div>").unwrap_or(div.len())];
+    let p = &div[div.find("class=\"instruction\"")?..];
+    let p = &p[p.find('>')? + 1..];
+    let message = text_of(&p[..p.find("</p>")?]);
+    Some(match message.as_str() {
+        "Client not found." => Refusal::ClientNotFound,
+        "Client disabled." => Refusal::ClientDisabled,
+        "Invalid parameter: redirect_uri" => Refusal::RedirectUri,
+        "" => return None,
+        _ => Refusal::Other(message),
+    })
+}
+
+/// An HTML fragment's text: tags dropped, the entities Keycloak's pages
+/// escape decoded, whitespace collapsed.
+fn text_of(html: &str) -> String {
+    let mut text = String::new();
+    let mut in_tag = false;
+    for c in html.chars() {
+        match c {
+            '<' => in_tag = true,
+            '>' if in_tag => in_tag = false,
+            c if !in_tag => text.push(c),
+            _ => {}
+        }
+    }
+    let text = text
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&#x27;", "'")
+        .replace("&amp;", "&");
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -298,6 +373,59 @@ mod tests {
             CONTEXT_SCOPES.len() + PATIENT_TYPES.len()
         );
         assert!(scopes().contains("patient/Observation.rs"));
+    }
+
+    #[test]
+    fn a_refusal_is_the_error_page_s_message() {
+        let page = |name| match name {
+            "client-not-found" => include_str!("../tests/fixtures/sign-in/client-not-found.html"),
+            "redirect-uri" => include_str!("../tests/fixtures/sign-in/redirect-uri.html"),
+            _ => include_str!("../tests/fixtures/sign-in/bearer-only.html"),
+        };
+        assert_eq!(
+            refusal(400, page("client-not-found")),
+            Some(Refusal::ClientNotFound)
+        );
+        assert_eq!(
+            refusal(400, page("redirect-uri")),
+            Some(Refusal::RedirectUri)
+        );
+        assert_eq!(
+            refusal(403, page("bearer-only")),
+            Some(Refusal::Other(
+                "Bearer-only applications are not allowed to initiate browser login".into()
+            ))
+        );
+        let disabled = page("client-not-found").replace("Client not found.", "Client disabled.");
+        assert_eq!(refusal(400, &disabled), Some(Refusal::ClientDisabled));
+        let escaped = page("client-not-found").replace(
+            "Client not found.",
+            "\n  A &quot;quoted&quot; &amp; <b>bold</b>\n  reason ",
+        );
+        assert_eq!(
+            refusal(400, &escaped),
+            Some(Refusal::Other("A \"quoted\" & bold reason".into()))
+        );
+    }
+
+    #[test]
+    fn only_a_4xx_error_page_is_a_refusal() {
+        let page = include_str!("../tests/fixtures/sign-in/client-not-found.html");
+        // A sign-in page, a redirect back, a server error a reload may get
+        // past: the browser's to show.
+        for status in [200, 302, 500, 503] {
+            assert_eq!(refusal(status, page), None, "{status}");
+        }
+        for body in [
+            "",
+            r#"{"error":"invalid_request"}"#,
+            "<html><body><form id=\"kc-form-login\"></form></body></html>",
+            // A message outside the error block is not the page's refusal.
+            "<div id=\"kc-error-message\"></div><p class=\"instruction\">Client not found.</p>",
+            "<div id=\"kc-error-message\"><p class=\"instruction\"> </p></div>",
+        ] {
+            assert_eq!(refusal(400, body), None, "{body}");
+        }
     }
 
     #[test]

@@ -128,7 +128,7 @@ fails. Every sign-in error ends with the `modmed` command that fixes it.
 | `modmed orgs list [--state ST] [--limit N]`, `modmed orgs search <WORDS>` | the practices (`org-list/v1`); search: every word must match the name, id, subdomain, city, state or NPI |
 | `modmed profiles list\|add <NAME>\|remove <NAME> [--force]` | the profiles, one per patient portal account (`profile-list/v1`) |
 | `modmed auth set-credential [--test] [--overwrite]` | store the app's client id and secret (`--test`: a test server's) |
-| `modmed auth login --profile <NAME> --org <ORG> [--label <WHO>] [--no-browser] [--timeout <MIN>]` | sign a patient in at a practice; waits up to `--timeout` minutes (default 10, at most 60) |
+| `modmed auth login --profile <NAME> --org <ORG> [--label <WHO>] [--no-browser] [--timeout <MIN>]` | sign a patient in at a practice; waits up to `--timeout` minutes (default 10, at most 60), and fails before Chrome opens when the practice refuses the app (exit 3) |
 | `modmed auth status --profile <NAME>` | what is stored (`auth-status/v1`), per environment and patient |
 | `modmed auth logout --profile <NAME> [--patient <WHO>] [--org <ORG>] [--forget]` | remove sign-ins; `--forget`, once no other profile holds one, also the client credentials and the vault's key |
 | `modmed patients list --profile <NAME> [--status] [--org <ORG>]` | the profile's patients (`patient-list/v1`) |

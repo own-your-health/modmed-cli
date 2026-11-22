@@ -1,7 +1,7 @@
 [package]
 name = "modmed-cli"
 description = "Pull your own health records from a ModMed practice through ModMed's Certified (ONC) FHIR API. Unofficial; not affiliated with or endorsed by ModMed (Modernizing Medicine, Inc.)."
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 # pk-cli-auth's refresh lock (File::lock) needs 1.89.
 rust-version = "1.89"
