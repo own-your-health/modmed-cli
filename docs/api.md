@@ -133,8 +133,9 @@ before Chrome opens (`modmed::refusal`), following no redirect and waiting
 at most 15 s. A 4xx with such a message fails at once with exit 3 and
 reason `client_not_found`, `client_disabled`, `redirect_refused` or
 `sign_in_refused`. The last quotes any other message, at most 200
-characters, with control characters dropped and the client id left out in
-any case or percent-encoding. Anything else (the sign-in page, a redirect,
+characters, with control characters and runs of whitespace each turned
+into one space, and the client id left out in any case or
+percent-encoding. Anything else (the sign-in page, a redirect,
 a 5xx, no answer in 15 s) goes on to the browser. The request carries the
 client id, so modmed never prints it.
 
@@ -178,7 +179,9 @@ and statuses only:
   (`/v1/vendor-app/create`) answers 400 "Content type 'text/html' not
   supported", every time. The app registers
   `https://piekstra.github.io/modmed-cli/callback` instead
-  (`site/callback.html`, published by `.github/workflows/pages.yml`), which
+  (a copy of `site/callback.html` served from the user site
+  `piekstra/piekstra.github.io`; `.github/workflows/pages.yml` publishes
+  the file itself at `https://own-your-health.github.io/modmed-cli/`), which
   passes the query unchanged to `http://127.0.0.1:7470/callback`, so
   `redirect_port` stays 7470. With `modmed config set redirect_page
   https://piekstra.github.io/modmed-cli/callback`, modmed sends the page as

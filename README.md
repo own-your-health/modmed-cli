@@ -33,7 +33,7 @@ the archive against its `.sha256`, then put `modmed` on your PATH:
 
 ```sh
 t=aarch64-apple-darwin
-u=https://github.com/piekstra/modmed-cli/releases/latest/download/modmed-$t.tar.gz
+u=https://github.com/own-your-health/modmed-cli/releases/latest/download/modmed-$t.tar.gz
 curl -sSLO "$u" && curl -sSLO "$u.sha256"
 shasum -a 256 -c "modmed-$t.tar.gz.sha256"    # on Linux: sha256sum -c
 tar xzf "modmed-$t.tar.gz" && mkdir -p ~/.local/bin && mv modmed ~/.local/bin/
@@ -105,7 +105,7 @@ modmed documents download --all -o ~/Downloads/notes
 modmed api GET 'Condition?patient=<id>'            # one read, the raw answer
 ```
 
-[medrec](https://github.com/piekstra/medrec-cli) runs `modmed records
+[medrec](https://github.com/own-your-health/medrec-cli) runs `modmed records
 export --profile <NAME>` itself and files what it gets:
 
 ```sh

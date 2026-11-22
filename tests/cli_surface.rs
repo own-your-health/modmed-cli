@@ -151,7 +151,7 @@ fn info_is_cli_info() {
         .as_array()
         .unwrap()
         .contains(&json!("login-profiles")));
-    assert!(v.to_string().contains("piekstra/modmed-cli"));
+    assert!(v.to_string().contains("own-your-health/modmed-cli"));
     // No MCP surface.
     assert!(!v.to_string().contains("mcp"));
     // Whether a client is stored, read with no Keychain item, and the
@@ -172,7 +172,7 @@ fn info_is_cli_info() {
         .unwrap()
         .starts_with(&format!(
             "modmed registration (an app of your own: {})",
-            "https://github.com/piekstra/modmed-cli/blob/main/docs/registration.md"
+            "https://github.com/own-your-health/modmed-cli/blob/main/docs/registration.md"
         )));
 }
 
@@ -204,7 +204,7 @@ fn registration_prints_the_form_s_values() {
     );
     assert_eq!(
         v["doc"],
-        "https://github.com/piekstra/modmed-cli/blob/main/docs/registration.md"
+        "https://github.com/own-your-health/modmed-cli/blob/main/docs/registration.md"
     );
     assert_eq!(v["launch"], "standalone-patient");
     assert_eq!(v["client_type"], "confidential-symmetric");
@@ -265,7 +265,7 @@ fn registration_prints_the_form_s_values() {
     let text = modmed(&home).arg("registration").assert().success();
     let text = String::from_utf8_lossy(&text.get_output().stdout).to_string();
     assert!(text.starts_with(
-        "Register modmed with ModMed (production): https://fhir-vendor-dashboard.kube.prod.mmicse.com\nStep by step: https://github.com/piekstra/modmed-cli/blob/main/docs/registration.md\n"
+        "Register modmed with ModMed (production): https://fhir-vendor-dashboard.kube.prod.mmicse.com\nStep by step: https://github.com/own-your-health/modmed-cli/blob/main/docs/registration.md\n"
     ));
     for needle in [
         "https://cb.example/modmed/callback",
@@ -529,10 +529,10 @@ fn nothing_stored_reads_as_such_without_the_keychain() {
         .assert()
         .success()
         .stdout(predicate::str::contains(
-            "client (production): none configured; see https://github.com/piekstra/modmed-cli/blob/main/docs/registration.md and `modmed registration`",
+            "client (production): none configured; see https://github.com/own-your-health/modmed-cli/blob/main/docs/registration.md and `modmed registration`",
         ))
         .stdout(predicate::str::contains(
-            "client (test): none configured; see https://github.com/piekstra/modmed-cli/blob/main/CONTRIBUTING.md and `modmed registration --test`",
+            "client (test): none configured; see https://github.com/own-your-health/modmed-cli/blob/main/CONTRIBUTING.md and `modmed registration --test`",
         ));
     let v = stdout_json(modmed(&home).args(["auth", "logout", "--profile", "adult1", "--json"]));
     assert_eq!(
