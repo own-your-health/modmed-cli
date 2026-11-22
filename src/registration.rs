@@ -22,9 +22,11 @@ use crate::modmed::{scopes, Environment};
 /// page links "Register as New User".
 pub const DASHBOARD: &str = "https://fhir-vendor-dashboard.kube.prod.mmicse.com";
 /// The step-by-step guide to ModMed's dashboard.
-pub const DOC: &str = "https://github.com/piekstra/modmed-cli/blob/main/docs/registration.md";
+pub const DOC: &str =
+    "https://github.com/own-your-health/modmed-cli/blob/main/docs/registration.md";
 /// The guide to a test server: `make mock` and its synthetic pair.
-pub const TEST_DOC: &str = "https://github.com/piekstra/modmed-cli/blob/main/CONTRIBUTING.md";
+pub const TEST_DOC: &str =
+    "https://github.com/own-your-health/modmed-cli/blob/main/CONTRIBUTING.md";
 /// The https page that passes a sign-in's answer on to modmed's listener
 /// (site/callback.html). The dashboard refuses an `http://127.0.0.1`
 /// redirect.
@@ -32,8 +34,8 @@ pub const REDIRECT_PAGE: &str = "https://piekstra.github.io/modmed-cli/callback"
 /// The client is confidential: the secret goes in the token request's body
 /// (`client_secret_post`).
 pub const CLIENT_TYPE: ClientType = ClientType::ConfidentialSymmetric;
-const REPOSITORY: &str = "https://github.com/piekstra/modmed-cli";
-const PRIVACY: &str = "https://github.com/piekstra/modmed-cli/blob/main/PRIVACY.md";
+const REPOSITORY: &str = "https://github.com/own-your-health/modmed-cli";
+const PRIVACY: &str = "https://github.com/own-your-health/modmed-cli/blob/main/PRIVACY.md";
 
 /// `environment`'s registration, with the redirect `config` sends.
 pub fn registration(environment: Environment, config: &Config) -> Registration {

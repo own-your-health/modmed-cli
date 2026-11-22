@@ -30,7 +30,7 @@ guide to the choices is
    | First Name, Last Name | Your own. |
    | Email | Your own address. The verification link is sent here and expires within 5 minutes. |
    | Company Name | Your own name. |
-   | Web page | `https://github.com/piekstra/modmed-cli`, the program you run. |
+   | Web page | `https://github.com/own-your-health/modmed-cli`, the program you run. |
    | Street, City or Locality, State, Province, or Region, Zip or Postal code, Country | Your own address, for ModMed. |
    | Phone number | Optional; the form submits without it. |
    | Description of Company or Applications | For example: "An individual using the open-source modmed command-line program to download my own records from my ModMed practice to my own computer." |
@@ -60,10 +60,10 @@ table (App Name, Type, Client ID, Secret, Status, Action). Choose
 | FHIR Version | Shows v4.0.1; nothing to choose. |
 | Access Type | **Client-Confidential**. modmed sends the client secret in the token request's body (`client_secret_post`). Not "Client-Confidential with JWKS". |
 | PKCE | **Use PKCE S256**. |
-| Launch URL | `https://github.com/piekstra/modmed-cli`. Required once a launch scope is checked: "Base (Launch) Url must be a valid url if a launch scope is present." modmed never uses it; it starts the sign-in itself (a standalone launch). |
+| Launch URL | `https://github.com/own-your-health/modmed-cli`. Required once a launch scope is checked: "Base (Launch) Url must be a valid url if a launch scope is present." modmed never uses it; it starts the sign-in itself (a standalone launch). |
 | Redirect URL | `https://piekstra.github.io/modmed-cli/callback`, or your own copy of the page (section 5). One URL per app; [section 5](#5-what-the-dashboard-refuses) explains why it is not `http://127.0.0.1:7470/callback`. |
 | Logo URL | Optional; leave empty. |
-| Policy URL | `https://github.com/piekstra/modmed-cli/blob/main/PRIVACY.md`. |
+| Policy URL | `https://github.com/own-your-health/modmed-cli/blob/main/PRIVACY.md`. |
 | Terms of Service URL | Optional; leave empty. |
 
 Each URL field asks "Please include http:// or https://".
@@ -141,7 +141,11 @@ after ModMed issues a new secret.
 | A second Redirect URL | The form has one field | The page above is the only one |
 | A launch scope with no Launch URL | "Base (Launch) Url must be a valid url if a launch scope is present." | Enter the repository's address |
 
-The redirect page (`site/callback.html` in this repository) is static. It
+The redirect page (`site/callback.html` in this repository) is static.
+`https://piekstra.github.io/modmed-cli/callback`, the address modmed's own
+app registers, serves a copy of it from the user site
+`piekstra/piekstra.github.io`; this repository's Pages site,
+`https://own-your-health.github.io/modmed-cli/`, serves the same file. It
 passes the sign-in's answer, unchanged, to modmed's listener at
 `http://127.0.0.1:7470/callback` on your own computer, so modmed still
 listens on port 7470 (`redirect_port`). It loads nothing else and keeps

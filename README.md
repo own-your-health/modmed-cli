@@ -33,7 +33,7 @@ the archive against its `.sha256`, then put `modmed` on your PATH:
 
 ```sh
 t=aarch64-apple-darwin
-u=https://github.com/piekstra/modmed-cli/releases/latest/download/modmed-$t.tar.gz
+u=https://github.com/own-your-health/modmed-cli/releases/latest/download/modmed-$t.tar.gz
 curl -sSLO "$u" && curl -sSLO "$u.sha256"
 shasum -a 256 -c "modmed-$t.tar.gz.sha256"    # on Linux: sha256sum -c
 tar xzf "modmed-$t.tar.gz" && mkdir -p ~/.local/bin && mv modmed ~/.local/bin/
@@ -105,7 +105,7 @@ modmed documents download --all -o ~/Downloads/notes
 modmed api GET 'Condition?patient=<id>'            # one read, the raw answer
 ```
 
-[medrec](https://github.com/piekstra/medrec-cli) runs `modmed records
+[medrec](https://github.com/own-your-health/medrec-cli) runs `modmed records
 export --profile <NAME>` itself and files what it gets:
 
 ```sh
@@ -128,7 +128,7 @@ fails. Every sign-in error ends with the `modmed` command that fixes it.
 | `modmed orgs list [--state ST] [--limit N]`, `modmed orgs search <WORDS>` | the practices (`org-list/v1`); search: every word must match the name, id, subdomain, city, state or NPI |
 | `modmed profiles list\|add <NAME>\|remove <NAME> [--force]` | the profiles, one per patient portal account (`profile-list/v1`) |
 | `modmed auth set-credential [--test] [--overwrite]` | store the app's client id and secret (`--test`: a test server's) |
-| `modmed auth login --profile <NAME> --org <ORG> [--label <WHO>] [--no-browser] [--timeout <MIN>]` | sign a patient in at a practice; waits up to `--timeout` minutes (default 10, at most 60) |
+| `modmed auth login --profile <NAME> --org <ORG> [--label <WHO>] [--no-browser] [--timeout <MIN>]` | sign a patient in at a practice; waits up to `--timeout` minutes (default 10, at most 60), and fails before Chrome opens when the practice refuses the app (exit 3) |
 | `modmed auth status --profile <NAME>` | what is stored (`auth-status/v1`), per environment and patient |
 | `modmed auth logout --profile <NAME> [--patient <WHO>] [--org <ORG>] [--forget]` | remove sign-ins; `--forget`, once no other profile holds one, also the client credentials and the vault's key |
 | `modmed patients list --profile <NAME> [--status] [--org <ORG>]` | the profile's patients (`patient-list/v1`) |
@@ -142,6 +142,21 @@ fails. Every sign-in error ends with the `modmed` command that fixes it.
 Every command takes `--json`, except `records export --ndjson`, whose output
 is already the NDJSON stream. Exit codes: 0 ok, 2 usage, 3 auth, 4 not
 found, 5 upstream, 6 confirmation required.
+
+With `--json`, an error's `reason` names a cause a caller may answer
+differently. The ones modmed sets itself:
+
+| Reason | Exit | When |
+|---|---|---|
+| `no_client` | 2 | no client id and secret stored for the registration the practice needs, before any request |
+| `client_not_found` | 3 | `auth login`, before Chrome opens: the practice's sign-in knows no client with the stored client id, as before ModMed approves the app |
+| `client_disabled` | 3 | `auth login`, before Chrome opens: the practice's sign-in has the app disabled |
+| `redirect_refused` | 3 | `auth login`, before Chrome opens: the redirect sent is not the app's Redirect URL |
+| `sign_in_refused` | 3 | `auth login`, before Chrome opens: any other refusal, its message quoted without the client id |
+
+`no_client` means nothing is stored; the four exit 3 reasons mean a client is
+stored and the practice refused it. [docs/api.md](docs/api.md#what-the-sign-in-refuses-before-any-page)
+has ModMed's answers behind them.
 
 ## Build
 

@@ -6,7 +6,7 @@ SMART App Launch, FHIR R4, US Core. It conforms to piekstra-cli/1 and
 medical-common's `health-records/v1` and `documents/v1` profiles, on the
 `pk-cli-*` crates from [cli-common](https://github.com/piekstra/cli-common)
 and the `pk-med-*` crates from
-[medical-common](https://github.com/piekstra/medical-common).
+[medical-common](https://github.com/own-your-health/medical-common).
 
 ## Layout
 
@@ -24,7 +24,7 @@ and the `pk-med-*` crates from
 | `src/credentials.rs` | the app's client id and secret: the vault entries `_client/production` and `_client/test` |
 | `src/registration.rs` | the two registrations as medical-common's `Registration` (`registration/v2`): `production`, what to enter on ModMed's vendor dashboard (`modmed registration`), and `test`, a test server's (`--test`); the missing-client error; `info`'s and `auth status`'s `clients`, from `Vault::contains` with no Keychain read. `docs/registration.md` says the same as `production`, and `tests/registration.rs` holds the two together |
 | `src/fsutil.rs` | owner-only files written whole |
-| `site/` | GitHub Pages (`.github/workflows/pages.yml`): `callback.html`, the https page a practice may redirect a sign-in to, forwarding it to `http://127.0.0.1:7470/callback`; `tests/site.rs` checks its target and its CSP hashes |
+| `site/` | GitHub Pages (`.github/workflows/pages.yml`, at `https://own-your-health.github.io/modmed-cli/`): `callback.html`, the https page a practice may redirect a sign-in to, forwarding it to `http://127.0.0.1:7470/callback`; `tests/site.rs` checks its target and its CSP hashes. The registered address `https://piekstra.github.io/modmed-cli/callback` is a copy in `piekstra/piekstra.github.io`: a change to `callback.html` goes there too, as its own reviewed PR |
 | `examples/mock_modmed.rs` | `make mock`: medical-common's mock SMART + FHIR server and a synthetic directory, for dogfooding |
 | `docs/api.md` | ModMed's API and terms, quoted, with sources and traps; read before changing auth, the directory or export |
 | `docs/registration.md` | registering a household's own app on ModMed's vendor dashboard, step by step, with the labels the dashboard shows |

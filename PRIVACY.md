@@ -62,7 +62,7 @@ manage the access after the first sign-in.
 ## Contact
 
 Questions about this policy: open an issue at
-https://github.com/piekstra/modmed-cli/issues. Never put a record or any
+https://github.com/own-your-health/modmed-cli/issues. Never put a record or any
 personal detail in an issue.
 
 ## The repository carries no personal data

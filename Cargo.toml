@@ -1,12 +1,12 @@
 [package]
 name = "modmed-cli"
 description = "Pull your own health records from a ModMed practice through ModMed's Certified (ONC) FHIR API. Unofficial; not affiliated with or endorsed by ModMed (Modernizing Medicine, Inc.)."
-version = "0.3.0"
+version = "0.3.1"
 edition = "2021"
 # pk-cli-auth's refresh lock (File::lock) needs 1.89.
 rust-version = "1.89"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/piekstra/modmed-cli"
+repository = "https://github.com/own-your-health/modmed-cli"
 authors = ["piekstra"]
 keywords = ["fhir", "smart-on-fhir", "modmed", "us-core", "health-records"]
 categories = ["command-line-utilities"]
@@ -33,15 +33,18 @@ pk-cli-selfupdate = { git = "https://github.com/piekstra/cli-common", tag = "v0.
 pk-cli-browser = { git = "https://github.com/piekstra/cli-common", tag = "v0.33.4" }
 # documents/v1: the DTOs, `verify_download`, safe file names.
 pk-cli-documents = { git = "https://github.com/piekstra/cli-common", tag = "v0.33.4" }
-pk-med-records = { git = "https://github.com/piekstra/medical-common", tag = "v0.6.9" }
-pk-med-fhir = { git = "https://github.com/piekstra/medical-common", tag = "v0.6.9" }
+pk-med-records = { git = "https://github.com/own-your-health/medical-common", tag = "v0.6.9" }
+pk-med-fhir = { git = "https://github.com/own-your-health/medical-common", tag = "v0.6.9" }
 # `browser`: the sign-in window in the profile's own Chrome profile.
-pk-med-smart = { git = "https://github.com/piekstra/medical-common", tag = "v0.6.9", features = ["browser"] }
+pk-med-smart = { git = "https://github.com/own-your-health/medical-common", tag = "v0.6.9", features = ["browser"] }
 clap = { version = "4", features = ["derive", "env"] }
 clap_complete = "4"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order", "raw_value"] }
 url = "2"
+# The sign-in's pre-check client, with a shorter timeout than the shared
+# transport's 60 s: the same reqwest cli-common builds on.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 # An attachment's inline `data`.
 base64 = "0.22"
 # A long document id's file name keeps a hash of the whole id.
@@ -49,8 +52,8 @@ sha2 = "0.11"
 
 [dev-dependencies]
 pk-cli-browser = { git = "https://github.com/piekstra/cli-common", tag = "v0.33.4", features = ["test-util"] }
-pk-med-fhir = { git = "https://github.com/piekstra/medical-common", tag = "v0.6.9", features = ["test-util"] }
-pk-med-records = { git = "https://github.com/piekstra/medical-common", tag = "v0.6.9", features = ["test-util"] }
+pk-med-fhir = { git = "https://github.com/own-your-health/medical-common", tag = "v0.6.9", features = ["test-util"] }
+pk-med-records = { git = "https://github.com/own-your-health/medical-common", tag = "v0.6.9", features = ["test-util"] }
 assert_cmd = "2"
 predicates = "3"
 tempfile = "3"

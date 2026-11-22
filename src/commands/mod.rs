@@ -33,7 +33,7 @@ use crate::orgs::{Freshness, Org, OrgIndex};
 use crate::session::{Context, Live};
 
 pub const BIN: &str = "modmed";
-pub const REPO: &str = "piekstra/modmed-cli";
+pub const REPO: &str = "own-your-health/modmed-cli";
 
 /// Names the keychain service a run uses instead of `piekstra.modmed`. For the
 /// test suite and for dogfooding: a service that holds nothing reads as

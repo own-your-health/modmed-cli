@@ -472,12 +472,108 @@ fn a_practices_patient_is_not_written_to_a_plain_file() {
     assert!(mock.requests().is_empty());
 }
 
+/// A sign-in whose authorization answers with `page` as the practice's
+/// Keycloak error page: it fails before any window opens or token is asked
+/// for, and stores nothing.
+fn refused_with(status: u16, page: &str) -> pk_cli_core::CliError {
+    let dir = tempfile::tempdir().unwrap();
+    let mock = MockServer::start();
+    let mut ctx = ctx(dir.path(), &mock);
+    ctx.window = Box::new(|_, _| panic!("a refused sign-in opens no window"));
+    mock.fail(
+        Fault::new("GET", "/authorize", status, page)
+            .header("Content-Type", "text/html;charset=utf-8"),
+    );
+    let err = commands::auth::run(&ctx, &AuthCmd::Login(login_args("test", None))).unwrap_err();
+    assert_eq!(err.exit_code(), 3, "{err}");
+    assert_eq!(count_of(&mock, "/authorize"), 1);
+    assert_eq!(count_of(&mock, "/token"), 0);
+    assert!(settings(&ctx).grants.is_empty());
+    assert!(ctx.sessions(&adult1()).accounts().unwrap().is_empty());
+    let json = err.to_json().to_string();
+    assert!(!json.contains(CLIENT_ID), "{json}");
+    assert!(!json.contains(CLIENT_SECRET), "{json}");
+    err
+}
+
 #[test]
-fn a_declined_consent_stores_nothing() {
+fn an_unknown_client_fails_at_once_instead_of_waiting_out_the_sign_in() {
+    let err = refused_with(400, include_str!("fixtures/sign-in/client-not-found.html"));
+    assert_eq!(err.to_json()["error"]["reason"], "client_not_found");
+    assert!(err.message().contains("(\"Client not found.\")"), "{err}");
+    let remedy = err.remedy().unwrap();
+    assert!(remedy.contains("\"Pending for Approval\""), "{remedy}");
+    assert!(
+        remedy.contains("run `modmed auth login --profile adult1 --org test --timeout 1` again"),
+        "{remedy}"
+    );
+    assert!(remedy.contains("`modmed auth set-credential`"), "{remedy}");
+}
+
+#[test]
+fn a_refused_redirect_names_the_address_and_the_setting() {
+    let err = refused_with(400, include_str!("fixtures/sign-in/redirect-uri.html"));
+    assert_eq!(err.to_json()["error"]["reason"], "redirect_refused");
+    assert!(
+        err.message()
+            .contains("the redirect address http://127.0.0.1:7470/callback"),
+        "{err}"
+    );
+    assert!(
+        err.remedy().unwrap().starts_with(
+            "point modmed at the page the app registers with `modmed config set redirect_page https://piekstra.github.io/modmed-cli/callback`"
+        ),
+        "{err}"
+    );
+}
+
+#[test]
+fn any_other_refusal_is_quoted_without_the_client_id() {
+    let page = include_str!("fixtures/sign-in/client-not-found.html")
+        .replace("Client not found.", &format!("No such app: {CLIENT_ID}"));
+    let err = refused_with(400, &page);
+    assert_eq!(err.to_json()["error"]["reason"], "sign_in_refused");
+    assert!(
+        err.message().ends_with("\"No such app: <client id>\""),
+        "{err}"
+    );
+    let remedy = err.remedy().unwrap();
+    assert!(
+        remedy.starts_with("check the app's settings on ModMed's dashboard (https://"),
+        "{remedy}"
+    );
+    assert!(
+        remedy.ends_with(
+            "against that message, then run `modmed auth login --profile adult1 --org test --timeout 1` again"
+        ),
+        "{remedy}"
+    );
+}
+
+#[test]
+fn a_server_error_at_the_sign_in_is_left_to_the_browser() {
     let dir = tempfile::tempdir().unwrap();
     let mock = MockServer::start();
     let ctx = ctx(dir.path(), &mock);
-    mock.deny_next_authorization();
+    // The first authorization is the check; the browser's gets past it.
+    mock.fail(Fault::unavailable("/authorize"));
+    login(&ctx, "adult1");
+    assert_eq!(count_of(&mock, "/authorize"), 2);
+    assert_eq!(settings(&ctx).grants.len(), 1);
+}
+
+#[test]
+fn a_declined_consent_stores_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    // The person declines in the browser, after modmed's own look at the
+    // authorization; the window outlives the test's borrow of the mock.
+    let mock: &'static MockServer = Box::leak(Box::new(MockServer::start()));
+    let mut ctx = ctx(dir.path(), mock);
+    let follow = window();
+    ctx.window = Box::new(move |profile, url| {
+        mock.deny_next_authorization();
+        follow(profile, url)
+    });
     let err = commands::auth::run(&ctx, &AuthCmd::Login(login_args("test", None))).unwrap_err();
     assert_eq!(err.exit_code(), 3, "{err}");
     assert_eq!(
@@ -581,7 +677,7 @@ fn a_practice_signs_in_with_the_production_client_only() {
     assert_eq!(err.exit_code(), 2, "{err}");
     assert_eq!(
         err.remedy(),
-        Some("register one by following https://github.com/piekstra/modmed-cli/blob/main/docs/registration.md, entering what `modmed registration` prints, then run `modmed auth set-credential`")
+        Some("register one by following https://github.com/own-your-health/modmed-cli/blob/main/docs/registration.md, entering what `modmed registration` prints, then run `modmed auth set-credential`")
     );
     assert_eq!(err.to_json()["error"]["reason"], "no_client");
     assert!(mock.requests().is_empty());

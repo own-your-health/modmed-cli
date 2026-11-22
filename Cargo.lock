@@ -1328,7 +1328,7 @@ dependencies = [
 
 [[package]]
 name = "modmed-cli"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "assert_cmd",
  "base64 0.22.1",
@@ -1346,6 +1346,7 @@ dependencies = [
  "pk-med-records",
  "pk-med-smart",
  "predicates",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -1638,7 +1639,7 @@ dependencies = [
 [[package]]
 name = "pk-med-fhir"
 version = "0.6.9"
-source = "git+https://github.com/piekstra/medical-common?tag=v0.6.9#8ac3234e7b26ffde121cbf3d511682e3dbfddb4d"
+source = "git+https://github.com/own-your-health/medical-common?tag=v0.6.9#8ac3234e7b26ffde121cbf3d511682e3dbfddb4d"
 dependencies = [
  "base64 0.22.1",
  "pk-cli-core",
@@ -1651,7 +1652,7 @@ dependencies = [
 [[package]]
 name = "pk-med-records"
 version = "0.6.9"
-source = "git+https://github.com/piekstra/medical-common?tag=v0.6.9#8ac3234e7b26ffde121cbf3d511682e3dbfddb4d"
+source = "git+https://github.com/own-your-health/medical-common?tag=v0.6.9#8ac3234e7b26ffde121cbf3d511682e3dbfddb4d"
 dependencies = [
  "pk-cli-core",
  "pk-med-fhir",
@@ -1662,7 +1663,7 @@ dependencies = [
 [[package]]
 name = "pk-med-smart"
 version = "0.6.9"
-source = "git+https://github.com/piekstra/medical-common?tag=v0.6.9#8ac3234e7b26ffde121cbf3d511682e3dbfddb4d"
+source = "git+https://github.com/own-your-health/medical-common?tag=v0.6.9#8ac3234e7b26ffde121cbf3d511682e3dbfddb4d"
 dependencies = [
  "base64 0.22.1",
  "pk-cli-auth",
