@@ -129,12 +129,14 @@ with an empty title. Keycloak's message for a client that exists but is
 disabled is "Client disabled."; no ModMed answer with it has been seen.
 
 `modmed auth login` therefore sends the authorization request once itself,
-before Chrome opens (`modmed::refusal`). A 4xx with such a message fails
-at once with exit 3 and reason `client_not_found`, `client_disabled`,
-`redirect_refused` or `sign_in_refused` (any other message, quoted with the
-client id left out). Anything else (the sign-in page, a redirect, a 5xx, no
-answer) goes on to the browser. The request carries the client id, so
-modmed never prints it.
+before Chrome opens (`modmed::refusal`), following no redirect and waiting
+at most 15 s. A 4xx with such a message fails at once with exit 3 and
+reason `client_not_found`, `client_disabled`, `redirect_refused` or
+`sign_in_refused`. The last quotes any other message, at most 200
+characters, with control characters dropped and the client id left out in
+any case or percent-encoding. Anything else (the sign-in page, a redirect,
+a 5xx, no answer in 15 s) goes on to the browser. The request carries the
+client id, so modmed never prints it.
 
 ### Scopes
 

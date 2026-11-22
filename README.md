@@ -143,6 +143,21 @@ Every command takes `--json`, except `records export --ndjson`, whose output
 is already the NDJSON stream. Exit codes: 0 ok, 2 usage, 3 auth, 4 not
 found, 5 upstream, 6 confirmation required.
 
+With `--json`, an error's `reason` names a cause a caller may answer
+differently. The ones modmed sets itself:
+
+| Reason | Exit | When |
+|---|---|---|
+| `no_client` | 2 | no client id and secret stored for the registration the practice needs, before any request |
+| `client_not_found` | 3 | `auth login`, before Chrome opens: the practice's sign-in knows no client with the stored client id, as before ModMed approves the app |
+| `client_disabled` | 3 | `auth login`, before Chrome opens: the practice's sign-in has the app disabled |
+| `redirect_refused` | 3 | `auth login`, before Chrome opens: the redirect sent is not the app's Redirect URL |
+| `sign_in_refused` | 3 | `auth login`, before Chrome opens: any other refusal, its message quoted without the client id |
+
+`no_client` means nothing is stored; the four exit 3 reasons mean a client is
+stored and the practice refused it. [docs/api.md](docs/api.md#what-the-sign-in-refuses-before-any-page)
+has ModMed's answers behind them.
+
 ## Build
 
 ```sh

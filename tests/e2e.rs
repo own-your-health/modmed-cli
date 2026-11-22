@@ -537,9 +537,16 @@ fn any_other_refusal_is_quoted_without_the_client_id() {
         err.message().ends_with("\"No such app: <client id>\""),
         "{err}"
     );
-    assert_eq!(
-        err.remedy(),
-        Some("run `modmed auth login --profile adult1 --org test --timeout 1` again")
+    let remedy = err.remedy().unwrap();
+    assert!(
+        remedy.starts_with("check the app's settings on ModMed's dashboard (https://"),
+        "{remedy}"
+    );
+    assert!(
+        remedy.ends_with(
+            "against that message, then run `modmed auth login --profile adult1 --org test --timeout 1` again"
+        ),
+        "{remedy}"
     );
 }
 

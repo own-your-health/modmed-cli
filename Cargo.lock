@@ -1346,6 +1346,7 @@ dependencies = [
  "pk-med-records",
  "pk-med-smart",
  "predicates",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2 0.11.1",

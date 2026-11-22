@@ -42,6 +42,9 @@ clap_complete = "4"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order", "raw_value"] }
 url = "2"
+# The sign-in's pre-check client, with a shorter timeout than the shared
+# transport's 60 s: the same reqwest cli-common builds on.
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
 # An attachment's inline `data`.
 base64 = "0.22"
 # A long document id's file name keeps a hash of the whole id.

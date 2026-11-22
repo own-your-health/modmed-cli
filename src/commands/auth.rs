@@ -218,7 +218,8 @@ fn login(ctx: &Ctx, args: &LoginArgs) -> Result<(), CliError> {
         },
     )?;
     let again = login_again(&profile, &org, args);
-    if let Some(e) = refused(&t, pending.url(), &org, &config, &client, &again) {
+    ctx.note(format!("Checking {}'s sign-in.", org.name));
+    if let Some(e) = refused(pending.url(), &org, &config, &client, &again) {
         return Err(e);
     }
     // Chrome in the profile's own browser profile, so one portal account's
@@ -322,20 +323,33 @@ fn login(ctx: &Ctx, args: &LoginArgs) -> Result<(), CliError> {
     Ok(())
 }
 
+/// How long the pre-check waits for the practice's sign-in to answer
+/// before leaving it to the browser.
+const PRE_CHECK_TIMEOUT: Duration = Duration::from_secs(15);
+
 /// The practice's sign-in asked once, before any window opens, whether it
 /// refuses the request itself ([`modmed::refusal`]): an app ModMed has not
 /// approved, or a redirect that is not the app's, would otherwise leave
 /// Chrome on an error page for the whole timeout. An answer that is no
-/// refusal, or none at all, leaves it to the browser. The address carries
-/// the client id, so it is never printed here.
+/// refusal, or none within [`PRE_CHECK_TIMEOUT`], leaves it to the
+/// browser. The address carries the client id, so it is never printed
+/// here.
 fn refused(
-    t: &pk_cli_http::BlockingTransport,
     url: &str,
     org: &Org,
     config: &Config,
     client: &ClientCredentials,
     again: &str,
 ) -> Option<CliError> {
+    // The shared transport's contract (no redirects followed, no cookies,
+    // no default headers) with the shorter timeout. A redirect followed
+    // here would hand modmed's own listener a code the browser never saw.
+    let t = reqwest::blocking::Client::builder()
+        .timeout(PRE_CHECK_TIMEOUT)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .ok()
+        .map(pk_cli_http::BlockingTransport::with_client)?;
     let request = HttpRequest::get(url).user_agent(BIN, env!("CARGO_PKG_VERSION"));
     let answer = block_on(t.send(request)).ok()?;
     let refusal = modmed::refusal(answer.status, &answer.body)?;
@@ -370,9 +384,11 @@ fn refused(
         }
         Refusal::Other(message) => CliError::Auth(format!(
             "{name}'s sign-in refused the request before any sign-in page: \"{}\"",
-            message.replace(client.client_id.as_str(), "<client id>")
+            modmed::quoted(message, &client.client_id)
         ))
-        .with_remedy(again),
+        .with_remedy(format!(
+            "check the app's settings on ModMed's dashboard ({DASHBOARD}) against that message, then {again}"
+        )),
     };
     Some(error.because(Reason::Provider(refusal.slug())))
 }
