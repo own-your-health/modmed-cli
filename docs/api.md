@@ -222,7 +222,8 @@ The points `modmed` is built around, quoted:
 - 3.6: an Application must not contain code under a license that requires
   "our software code, or other software code combined or distributed with
   our software code, to be: (i) disclosed or distributed in source code
-  form ...". `modmed` is MIT or Apache-2.0, and `deny.toml` admits no
+  form ...". `modmed` is AGPL-3.0-only, whose source-code terms cover
+  modmed's own code and never ModMed's; `deny.toml` admits no other
   copyleft dependency.
 - 4.2: "ModMed may monitor your use of the CAPI Services". "Currently,
   ModMed does not charge" for them.

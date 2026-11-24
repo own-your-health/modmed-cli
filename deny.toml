@@ -3,9 +3,11 @@
 yanked = "deny"
 
 [licenses]
-# Permissive licenses we accept for dependencies. No copyleft, MPL-2.0
-# included: ModMed's Certified API Terms of Use (3.6) bar code under a
-# license that requires code combined with theirs to be disclosed.
+# Permissive licenses we accept for dependencies, and AGPL-3.0-only for this
+# crate and medical-common's. ModMed's Certified API Terms of Use (3.6) bar
+# code under a license that requires ModMed's code, or code combined with
+# theirs, to be disclosed; AGPL-3.0's terms cover only this program's code.
+# No other copyleft, MPL-2.0 included.
 allow = [
     "MIT",
     "Apache-2.0",
@@ -17,6 +19,7 @@ allow = [
     "Unicode-3.0",
     "Unicode-DFS-2016",
     "CDLA-Permissive-2.0",
+    "AGPL-3.0-only",
 ]
 confidence-threshold = 0.8
 
